@@ -342,7 +342,22 @@
   // ---------- persistence ----------
   function savePrefs(){
     try{
-      localStorage.setItem(LS_KEY, JSON.stringify({ sortKey:display.sortKey, sortDir:display.sortDir, tileSize:display.tileSize }));
+      const facetsOut = {};
+      Object.keys(filters.facets).forEach(k=>{
+        const f = filters.facets[k];
+        facetsOut[k] = { selected:Array.from(f.selected), mode:f.mode, useChrono:!!f.useChrono };
+      });
+      const data = {
+        sortKey:display.sortKey, sortDir:display.sortDir, tileSize:display.tileSize,
+        filters: {
+          yearFrom:filters.yearFrom, yearTo:filters.yearTo, dedupe:filters.dedupe,
+          freeText:filters.freeText, fwTargets:filters.fwTargets, fwMode:filters.fwMode,
+          cost:filters.cost, power:filters.power,
+          civ:{ include:Array.from(filters.civ.include), exclude:Array.from(filters.civ.exclude), colorCountMode:filters.civ.colorCountMode },
+          facets: facetsOut,
+        },
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
     }catch(e){}
   }
   function loadPrefs(){
@@ -354,6 +369,74 @@
       if(p.sortDir) display.sortDir = p.sortDir;
       if(p.tileSize) display.tileSize = p.tileSize;
     }catch(e){}
+  }
+  // buildFacetDefs()でfilters.facetsの雛形ができた後に呼び出し、保存されていた
+  // 絞り込み条件を復元する。ページ内容(DB)を読み込む前は復元できないため、
+  // boot()の中でこのタイミングまで待つ必要がある。
+  function loadSavedFilters(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(!raw) return;
+      const p = JSON.parse(raw);
+      const f = p.filters;
+      if(!f) return;
+      filters.yearFrom = f.yearFrom ?? null;
+      filters.yearTo = f.yearTo ?? null;
+      filters.dedupe = f.dedupe !== undefined ? f.dedupe : true;
+      filters.freeText = f.freeText || "";
+      filters.fwTargets = f.fwTargets || {name:true, text:true, race:false};
+      filters.fwMode = f.fwMode || "OR";
+      filters.cost = f.cost || {from:null, to:null};
+      filters.power = f.power || {from:null, to:null};
+      if(f.civ){
+        filters.civ.include = new Set(f.civ.include||[]);
+        filters.civ.exclude = new Set(f.civ.exclude||[]);
+        filters.civ.colorCountMode = f.civ.colorCountMode || "any";
+      }
+      if(f.facets){
+        Object.keys(f.facets).forEach(k=>{
+          if(filters.facets[k]){
+            filters.facets[k].selected = new Set(f.facets[k].selected||[]);
+            filters.facets[k].mode = f.facets[k].mode || "OR";
+            filters.facets[k].useChrono = !!f.facets[k].useChrono;
+          }
+        });
+      }
+    }catch(e){}
+  }
+  // buildFacetPanelDOM()/buildCivRow()でDOMを再構築した『後』、通常のHTMLに
+  // 静的に存在する入力欄（年代・コスト・パワー・フリーワード等）の表示だけは
+  // 別途、現在のfiltersの値に合わせて手動で同期させる必要がある。
+  function syncStaticInputsFromFilters(){
+    document.getElementById("yearFrom").value = filters.yearFrom ?? "";
+    document.getElementById("yearTo").value = filters.yearTo ?? "";
+    document.getElementById("dedupeToggle").checked = filters.dedupe;
+    document.getElementById("freeText").value = filters.freeText;
+    document.getElementById("fwTargetName").checked = filters.fwTargets.name;
+    document.getElementById("fwTargetText").checked = filters.fwTargets.text;
+    document.getElementById("fwTargetRace").checked = filters.fwTargets.race;
+    document.getElementById("costFrom").value = filters.cost.from ?? "";
+    document.getElementById("costTo").value = filters.cost.to ?? "";
+    document.getElementById("powerFrom").value = filters.power.from ?? "";
+    document.getElementById("powerTo").value = filters.power.to ?? "";
+
+    const fwSw = document.getElementById("fwModeToggle");
+    fwSw.querySelectorAll("span").forEach(s=>s.classList.toggle("on", s.dataset.val===filters.fwMode));
+
+    document.querySelectorAll("#colorCountRow button").forEach(b=>{
+      b.classList.toggle("active", b.dataset.mode===filters.civ.colorCountMode);
+    });
+
+    document.querySelectorAll(".toggle-switch[data-mode]").forEach(sw=>{
+      const key = sw.dataset.mode;
+      const mode = filters.facets[key] ? filters.facets[key].mode : "OR";
+      sw.querySelectorAll("span").forEach(s=>s.classList.toggle("on", s.dataset.val===mode));
+    });
+    document.querySelectorAll(".toggle-switch[data-chrono]").forEach(sw=>{
+      const key = sw.dataset.chrono;
+      const val = filters.facets[key] ? !!filters.facets[key].useChrono : false;
+      sw.querySelectorAll("span").forEach(s=>s.classList.toggle("on", s.dataset.val===String(val)));
+    });
   }
 
   // ---------- utils ----------
@@ -416,8 +499,10 @@
       loadCards(db);
       buildSeriesOrder(db);
       buildFacetDefs();
+      loadSavedFilters();
       buildFacetPanelDOM();
       buildCivRow();
+      syncStaticInputsFromFilters();
       attachGlobalListeners();
       applySavedDisplayToControls();
       applyFiltersAndRender();
@@ -440,6 +525,9 @@
       SELECT c.card_id, c.card_name, c.product_code, c.card_number, c.civilization,
              c.card_type, c.rarity, c.cost, c.power, c.ability_text, c.flavor_text,
              c.image_url, c.thumb_url,
+             c.has_back_side, c.back_card_name, c.back_civilization, c.back_card_type,
+             c.back_rarity, c.back_cost, c.back_power, c.back_race,
+             c.back_ability_text, c.back_flavor_text, c.back_image_url,
              p.product_name, p.release_year, p.series
       FROM cards c LEFT JOIN products p ON c.product_code = p.product_code
     `)[0];
@@ -534,7 +622,10 @@
   // ---------- DOM: civilization ----------
   function buildCivRow(){
     const row = document.getElementById("civRow");
-    row.innerHTML = CIV_ORDER.map(c=>`<div class="civ-chip" data-civ="${c}" data-state="neutral" style="--chip-color:${CIV_COLOR[c]}">${c}</div>`).join("");
+    row.innerHTML = CIV_ORDER.map(c=>{
+      const state = filters.civ.include.has(c) ? "include" : (filters.civ.exclude.has(c) ? "exclude" : "neutral");
+      return `<div class="civ-chip" data-civ="${c}" data-state="${state}" style="--chip-color:${CIV_COLOR[c]}">${c}</div>`;
+    }).join("");
   }
 
   // ---------- DOM: facet panel ----------
@@ -838,6 +929,7 @@
     visibleCount = PAGE_SIZE;
     document.getElementById("resultCount").innerHTML = `<b>${list.length.toLocaleString()}</b> 枚が該当`;
     renderGrid(list);
+    savePrefs();
   }
 
   function renderGrid(list){
@@ -861,6 +953,27 @@
       ...c.races.map(v=>`<span class="tag-chip">${escapeHtml(v)}</span>`),
       ...c.abilities.map(v=>`<span class="tag-chip">${escapeHtml(v)}</span>`),
     ].join("");
+
+    let backSection = "";
+    if(c.has_back_side){
+      backSection = `
+        <div style="margin-top:16px; padding-top:14px; border-top:2px solid var(--line);">
+          <div style="font-size:11px; color:var(--text-faint); margin-bottom:6px;">裏面（サイキック・リンク等で複数枚が同じ裏面を共有することがあります）</div>
+          <div style="display:flex; gap:14px; flex-wrap:wrap;">
+            <img src="${c.back_image_url||""}" alt="${escapeHtml(c.back_card_name||"")}" style="width:150px; max-width:45%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;" referrerpolicy="no-referrer" onerror="handleImgError(this)">
+            <div style="flex:1; min-width:160px;">
+              <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(c.back_card_name||"-")}</div>
+              <div class="ability-text" style="font-size:12px;">${escapeHtml(c.back_ability_text || "（能力テキストなし）")}</div>
+              <div class="row"><b>文明</b><span>${escapeHtml(c.back_civilization||"-")}</span></div>
+              <div class="row"><b>種類</b><span>${escapeHtml(c.back_card_type||"-")}</span></div>
+              <div class="row"><b>コスト/パワー</b><span>${c.back_cost??"-"} / ${c.back_power??"-"}</span></div>
+              <div class="row"><b>種族</b><span>${escapeHtml((c.back_race||"").split("/").join("、")||"-")}</span></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     document.getElementById("modalBody").innerHTML = `
       <img src="${c.image_url}" alt="${escapeHtml(c.card_name)}" referrerpolicy="no-referrer" onerror="handleImgError(this)">
       <div id="modalInfo">
@@ -875,6 +988,7 @@
         <div class="row"><b>レアリティ</b><span>${escapeHtml(c.rarity||"-")}</span></div>
         <div class="row"><b>イラスト</b><span>${escapeHtml(c.illustrators.join("、")||"-")}</span></div>
         <div>${tags}</div>
+        ${backSection}
       </div>
     `;
     document.getElementById("modalOverlay").classList.add("open");
