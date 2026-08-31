@@ -51,12 +51,19 @@
   @media (max-width: 880px){ .layout{grid-template-columns:1fr; padding:14px 12px 40px;} }
 
   #filterToggleBtn{display:none;}
+  body.no-scroll{overflow:hidden;}
   @media (max-width: 880px){
     #filterToggleBtn{
       display:block; position:sticky; top:8px; z-index:40; margin-bottom:10px;
       background:rgba(224,85,63,.16); color:var(--text); border:1px solid rgba(224,85,63,.5);
       padding:10px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;
       backdrop-filter:blur(4px);
+    }
+    /* メニューを開いている間は、背景ページのスクロール位置に連動するstickyをやめ、
+       常にビューポート最上部に固定する(fixed)。背景側のスクロール自体も
+       body.no-scrollで止めるため、二重に安定させている。 */
+    #filterToggleBtn.menu-open{
+      position:fixed; top:8px; left:12px; right:12px; margin-bottom:0;
     }
     #filterPanel{display:none;}
     #filterPanel.open{display:block; position:fixed; inset:0; z-index:39; overflow-y:auto; padding:64px 14px 40px; background:var(--bg);}
@@ -458,7 +465,13 @@
 
   // ---------- utils ----------
   function toHiragana(s){ return s.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0x60)); }
-  function normalizeText(s){ return toHiragana((s||"").replace(/[・･]/g, "")).toLowerCase(); }
+  // 全角英数字(Ａ-Ｚ、ａ-ｚ、０-９)を半角に変換する。
+  // 「大邪眼Ｂ・ロマノフ」と「大邪眼B・ロマノフ」のような、全角/半角の
+  // 表記揺れだけが理由で同名カードとして扱われないケースへの対策。
+  function toHalfWidthAlnum(s){ return (s||"").replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0)); }
+  function normalizeText(s){ return toHiragana(toHalfWidthAlnum((s||"").replace(/[・･]/g, ""))).toLowerCase(); }
+  // 同名カード判定専用のキー生成（表示用のcard_nameは変更しない）
+  function dedupeKey(name){ return normalizeText(name); }
   function parseCode(code){
     const m = /^([A-Za-z]+)-?(\d+)([A-Za-z]*)$/.exec(code || "");
     if(!m) return {prefix:code||"", num:0, suffix:""};
@@ -732,7 +745,12 @@
   // ---------- listeners ----------
   function attachGlobalListeners(){
     document.getElementById("filterToggleBtn").addEventListener("click", ()=>{
-      document.getElementById("filterPanel").classList.toggle("open");
+      const panel = document.getElementById("filterPanel");
+      const btn = document.getElementById("filterToggleBtn");
+      const willOpen = !panel.classList.contains("open");
+      panel.classList.toggle("open", willOpen);
+      btn.classList.toggle("menu-open", willOpen);
+      document.body.classList.toggle("no-scroll", willOpen);
     });
 
     document.addEventListener("click", (e)=>{
@@ -977,11 +995,12 @@
     if(filters.dedupe){
       const byName = new Map();
       list.forEach(c=>{
-        const existing = byName.get(c.card_name);
-        if(!existing){ byName.set(c.card_name, c); return; }
+        const key = dedupeKey(c.card_name);
+        const existing = byName.get(key);
+        if(!existing){ byName.set(key, c); return; }
         if(c.release_year < existing.release_year ||
            (c.release_year===existing.release_year && compareCode(c.product_code, existing.product_code)<0)){
-          byName.set(c.card_name, c);
+          byName.set(key, c);
         }
       });
       list = Array.from(byName.values());
