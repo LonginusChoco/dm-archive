@@ -453,6 +453,22 @@
     if(pa.num!==pb.num) return pa.num-pb.num;
     return pa.suffix<pb.suffix?-1:(pa.suffix>pb.suffix?1:0);
   }
+  // カード番号（例: '41/110', 'S5/S7', '4a/55'）を比較する。
+  // '/'より前の部分だけを見て、先頭の文字プレフィックス→数字→末尾の
+  // 文字サフィックスの順で比較する（'/'より後ろは総収録数なので無視する）。
+  function parseCardNumber(numStr){
+    if(!numStr) return {prefix:"", num:0, suffix:""};
+    const left = String(numStr).split("/")[0];
+    const m = /^([^\d]*)(\d+)(.*)$/.exec(left);
+    if(!m) return {prefix:left, num:0, suffix:""};
+    return {prefix:m[1], num:parseInt(m[2],10), suffix:m[3]};
+  }
+  function compareCardNumber(a,b){
+    const pa=parseCardNumber(a), pb=parseCardNumber(b);
+    if(pa.prefix!==pb.prefix) return pa.prefix<pb.prefix?-1:1;
+    if(pa.num!==pb.num) return pa.num-pb.num;
+    return pa.suffix<pb.suffix?-1:(pa.suffix>pb.suffix?1:0);
+  }
   function uniqSorted(arr){
     return Array.from(new Set(arr.filter(v=>v!==null && v!==undefined && v!=="")))
       .sort((a,b)=> String(a).localeCompare(String(b),'ja'));
@@ -914,6 +930,7 @@
       if(display.sortKey==="release"){
         r = (a.release_year||0)-(b.release_year||0);
         if(r===0) r = compareCode(a.product_code,b.product_code);
+        if(r===0) r = compareCardNumber(a.card_number, b.card_number);
       } else if(display.sortKey==="name"){
         r = String(a.card_name||"").localeCompare(String(b.card_name||""),'ja');
       } else if(display.sortKey==="cost"){
