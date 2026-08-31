@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DM Archive — クラシックレギュレーション カード検索</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14161c;
+    --panel: #1b1e26;
+    --panel-2: #20232d;
+    --line: #2b2f3a;
+    --text: #e7e6e1;
+    --text-dim: #9297a3;
+    --text-faint: #5c6270;
+    --civ-hikari: #d9b64a;
+    --civ-mizu: #3a8fd9;
+    --civ-yami: #8c5fc9;
+    --civ-hi: #e0553f;
+    --civ-shizen: #4fa34a;
+    --civ-zero: #838a97;
+    --accent: #e0553f;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Zen Kaku Gothic New", "Hiragino Sans", sans-serif;
+    line-height:1.6;
+    min-height:100vh;
+  }
+  code, .mono{font-family:"JetBrains Mono", monospace;}
+
+  /* ---------- header ---------- */
+  header.site{
+    padding:28px 20px 22px;
+    border-bottom:1px solid var(--line);
+    background:
+      linear-gradient(90deg, var(--civ-hikari) 0 16.6%, var(--civ-mizu) 16.6% 33.2%, var(--civ-yami) 33.2% 49.8%, var(--civ-hi) 49.8% 66.4%, var(--civ-shizen) 66.4% 83%, var(--civ-zero) 83% 100%) top/100% 3px no-repeat,
+      var(--bg);
+  }
+  header.site .title-row{
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+    max-width:1400px; margin:0 auto;
+  }
+  header.site h1{
+    font-size:22px; font-weight:900; letter-spacing:.02em; margin:0;
+  }
+  header.site .subtitle{
+    color:var(--text-dim); font-size:13px;
+  }
+  header.site .stat-line{
+    max-width:1400px; margin:10px auto 0; color:var(--text-faint); font-size:12.5px;
+    font-family:"JetBrains Mono", monospace;
+  }
+
+  /* ---------- layout ---------- */
+  .layout{
+    max-width:1400px; margin:0 auto; padding:18px 20px 60px;
+    display:grid; grid-template-columns:300px 1fr; gap:22px;
+  }
+  @media (max-width: 880px){
+    .layout{grid-template-columns:1fr; padding:14px 12px 40px;}
+  }
+
+  /* ---------- filter panel ---------- */
+  #filterToggleBtn{display:none;}
+  @media (max-width: 880px){
+    #filterToggleBtn{
+      display:block; width:100%; margin-top:12px;
+      background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+      padding:10px; border-radius:var(--radius); font-size:14px; cursor:pointer;
+    }
+    #filterPanel{display:none;}
+    #filterPanel.open{display:block;}
+  }
+
+  #filterPanel{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px; align-self:start; position:sticky; top:14px;
+    max-height:calc(100vh - 28px); overflow-y:auto;
+  }
+  .facet{border-bottom:1px solid var(--line); padding:10px 0;}
+  .facet:last-child{border-bottom:none;}
+  .facet-head{
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+    user-select:none;
+  }
+  .facet-head h3{font-size:13px; margin:0; font-weight:700; letter-spacing:.02em;}
+  .facet-head .count-badge{
+    font-size:10.5px; color:var(--text-faint); font-family:"JetBrains Mono", monospace;
+  }
+  .facet-body{margin-top:8px; display:none;}
+  .facet.expanded .facet-body{display:block;}
+  .facet-head .caret{color:var(--text-faint); font-size:11px; transition:transform .15s;}
+  .facet.expanded .facet-head .caret{transform:rotate(90deg);}
+
+  .facet-search{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:6px 8px; font-size:12.5px; border-radius:var(--radius); margin-bottom:6px;
+  }
+  .facet-mode{
+    display:flex; gap:4px; margin-bottom:6px;
+  }
+  .facet-mode button{
+    flex:1; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+    font-size:11px; padding:4px 0; cursor:pointer; border-radius:var(--radius);
+  }
+  .facet-mode button.active{
+    background:var(--accent); color:#fff; border-color:var(--accent);
+  }
+  .facet-options{max-height:180px; overflow-y:auto;}
+  .facet-option{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; padding:2px 0; color:var(--text-dim);
+  }
+  .facet-option input{accent-color:var(--accent); flex-shrink:0;}
+  .facet-option label{cursor:pointer; flex:1;}
+  .facet-option .n{color:var(--text-faint); font-size:10.5px; font-family:"JetBrains Mono", monospace;}
+
+  .range-row{display:flex; align-items:center; gap:6px;}
+  .range-row input[type=number]{
+    width:70px; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:5px 6px; font-size:12.5px; border-radius:var(--radius);
+  }
+  .range-row span{color:var(--text-faint); font-size:12px;}
+
+  .toggle-row{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-top:4px;}
+  .toggle-row input{accent-color:var(--accent);}
+
+  #freeText{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:8px 10px; font-size:13px; border-radius:var(--radius);
+  }
+
+  #resetBtn{
+    width:100%; margin-top:12px; background:transparent; border:1px solid var(--line);
+    color:var(--text-dim); padding:8px; border-radius:var(--radius); font-size:12.5px; cursor:pointer;
+  }
+  #resetBtn:hover{border-color:var(--accent); color:var(--text);}
+
+  /* ---------- results ---------- */
+  .result-head{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;
+    margin-bottom:14px; color:var(--text-dim); font-size:13px;
+  }
+  #resultCount b{color:var(--text); font-family:"JetBrains Mono", monospace;}
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:12px;
+  }
+  .card-tile{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; cursor:pointer; transition:border-color .12s, transform .12s;
+  }
+  .card-tile:hover{border-color:var(--accent); transform:translateY(-2px);}
+  .card-tile img{
+    width:100%; aspect-ratio:5/7; object-fit:contain; background:#0c0d11; display:block;
+  }
+  .card-tile .meta{padding:6px 8px 8px;}
+  .card-tile .cname{font-size:11.5px; font-weight:700; line-height:1.3;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .card-tile .csub{font-size:10px; color:var(--text-faint); margin-top:3px; font-family:"JetBrains Mono", monospace;}
+
+  #loadMoreBtn{
+    display:block; margin:26px auto 0; background:var(--panel-2); border:1px solid var(--line);
+    color:var(--text); padding:10px 26px; border-radius:var(--radius); font-size:13px; cursor:pointer;
+  }
+  #loadMoreBtn:hover{border-color:var(--accent);}
+  #loadMoreBtn[hidden]{display:none;}
+
+  #loadingMsg, #emptyMsg{
+    text-align:center; color:var(--text-faint); padding:60px 0; font-size:13px;
+  }
+  #emptyMsg[hidden], #loadingMsg[hidden]{display:none;}
+
+  /* ---------- modal ---------- */
+  #modalOverlay{
+    position:fixed; inset:0; background:rgba(6,7,9,.86); display:none;
+    align-items:flex-start; justify-content:center; padding:30px 16px; overflow-y:auto; z-index:50;
+  }
+  #modalOverlay.open{display:flex;}
+  #modalBox{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    max-width:620px; width:100%; padding:20px; position:relative;
+  }
+  #modalClose{
+    position:absolute; top:10px; right:12px; background:none; border:none; color:var(--text-dim);
+    font-size:20px; cursor:pointer;
+  }
+  #modalBody{display:flex; gap:18px; flex-wrap:wrap;}
+  #modalBody img{width:220px; max-width:100%; border-radius:var(--radius); background:#0c0d11;}
+  #modalInfo{flex:1; min-width:220px; font-size:13px;}
+  #modalInfo h2{font-size:17px; margin:0 0 4px;}
+  #modalInfo .row{display:flex; gap:6px; padding:3px 0; border-bottom:1px solid var(--line); color:var(--text-dim);}
+  #modalInfo .row b{color:var(--text); min-width:78px; font-weight:700;}
+  #modalInfo .ability-text{margin-top:10px; white-space:pre-wrap; color:var(--text-dim); font-size:12.5px;}
+  .tag-chip{
+    display:inline-block; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+    font-size:10.5px; padding:2px 7px; border-radius:10px; margin:2px 4px 2px 0;
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="title-row">
+    <h1>DM Archive</h1>
+    <span class="subtitle">クラシックレギュレーション カード検索</span>
+  </div>
+  <div class="stat-line" id="statLine">読み込み中...</div>
+</header>
+
+<div class="layout">
+  <button id="filterToggleBtn">絞り込み条件を開く ▾</button>
+
+  <aside id="filterPanel">
+    <div class="facet">
+      <div class="facet-head" data-target="yearBody"><h3>発売年の範囲</h3><span class="caret">▸</span></div>
+      <div class="facet-body" id="yearBody">
+        <div class="range-row">
+          <input type="number" id="yearFrom" placeholder="開始年">
+          <span>〜</span>
+          <input type="number" id="yearTo" placeholder="終了年">
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="dedupeToggle" checked>
+          <label for="dedupeToggle">同名カードは範囲内で最古の1枚だけ表示</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="facet">
+      <div class="facet-head" data-target="freeTextBody"><h3>フリーワード</h3><span class="caret">▸</span></div>
+      <div class="facet-body" id="freeTextBody">
+        <input type="text" id="freeText" placeholder="カード名・能力テキストなど（中黒の有無は無視）">
+      </div>
+    </div>
+
+    <div class="facet">
+      <div class="facet-head" data-target="costBody"><h3>コスト</h3><span class="caret">▸</span></div>
+      <div class="facet-body" id="costBody">
+        <div class="range-row">
+          <input type="number" id="costFrom" placeholder="下限">
+          <span>〜</span>
+          <input type="number" id="costTo" placeholder="上限">
+        </div>
+      </div>
+    </div>
+
+    <div class="facet">
+      <div class="facet-head" data-target="powerBody"><h3>パワー</h3><span class="caret">▸</span></div>
+      <div class="facet-body" id="powerBody">
+        <div class="range-row">
+          <input type="number" id="powerFrom" placeholder="下限">
+          <span>〜</span>
+          <input type="number" id="powerTo" placeholder="上限">
+        </div>
+      </div>
+    </div>
+
+    <div id="facetContainer"><!-- civilization / cardType / race / rarity / ability / series / product / illustrator が動的挿入される --></div>
+
+    <button id="resetBtn">条件をすべてリセット</button>
+  </aside>
+
+  <main>
+    <div class="result-head">
+      <div id="resultCount">-</div>
+    </div>
+    <div id="loadingMsg">データベースを読み込んでいます...</div>
+    <div id="emptyMsg" hidden>条件に一致するカードが見つかりませんでした。</div>
+    <div class="grid" id="grid"></div>
+    <button id="loadMoreBtn" hidden>さらに表示する</button>
+  </main>
+</div>
+
+<div id="modalOverlay">
+  <div id="modalBox">
+    <button id="modalClose">×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const DB_PATH = "./duelmasters.db";
+  const PAGE_SIZE = 60;
+
+  const CIV_COLOR = {
+    "光":"var(--civ-hikari)", "水":"var(--civ-mizu)", "闇":"var(--civ-yami)",
+    "火":"var(--civ-hi)", "自然":"var(--civ-shizen)", "ゼロ":"var(--civ-zero)"
+  };
+  const CIV_ORDER = ["光","水","闇","火","自然","ゼロ"];
+
+  // ---------- state ----------
+  let ALL_CARDS = [];          // 全カード(civilizations配列, races配列 等を持つオブジェクト)
+  let FACET_DEFS = [];         // {key, label, kind:'multi', getValues(card)} の一覧
+  let filters = {
+    yearFrom:null, yearTo:null, dedupe:true, freeText:"",
+    cost:{from:null,to:null}, power:{from:null,to:null},
+    facets:{} // key -> {selected:Set, mode:'OR'|'AND', search:''}
+  };
+  let visibleCount = PAGE_SIZE;
+
+  // ---------- utils ----------
+  function normalizeText(s){
+    return (s||"").replace(/[・･]/g, "").toLowerCase();
+  }
+  function parseCode(code){
+    const m = /^([A-Za-z]+)-?(\d+)([A-Za-z]*)$/.exec(code || "");
+    if(!m) return {prefix:code||"", num:0, suffix:""};
+    return {prefix:m[1], num:parseInt(m[2],10), suffix:m[3]};
+  }
+  function compareCode(a,b){
+    const pa=parseCode(a), pb=parseCode(b);
+    if(pa.prefix!==pb.prefix) return pa.prefix<pb.prefix?-1:1;
+    if(pa.num!==pb.num) return pa.num-pb.num;
+    return pa.suffix<pb.suffix?-1:(pa.suffix>pb.suffix?1:0);
+  }
+  function uniqSorted(arr){
+    return Array.from(new Set(arr.filter(v=>v!==null && v!==undefined && v!=="")))
+      .sort((a,b)=> String(a).localeCompare(String(b),'ja'));
+  }
+
+  // ---------- boot ----------
+  async function boot(){
+    try{
+      const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+      const resp = await fetch(DB_PATH);
+      if(!resp.ok) throw new Error("db fetch failed: " + resp.status);
+      const buf = await resp.arrayBuffer();
+      const db = new SQL.Database(new Uint8Array(buf));
+
+      loadCards(db);
+      buildFacetDefs();
+      buildFacetPanelDOM();
+      attachGlobalListeners();
+      applyFiltersAndRender();
+
+      document.getElementById("loadingMsg").hidden = true;
+      document.getElementById("statLine").textContent =
+        `全 ${ALL_CARDS.length.toLocaleString()} 枚 / 発売年 ${minYear()}〜${maxYear()}年を収録`;
+    }catch(err){
+      console.error(err);
+      document.getElementById("loadingMsg").textContent =
+        "読み込みに失敗しました。ローカルで直接HTMLファイルを開いている場合、ブラウザのセキュリティ制限でdbファイルを読み込めないことがあります。簡易サーバー（例: python -m http.server）経由で開くか、GitHub Pages等で公開してからお試しください。詳細: " + err.message;
+    }
+  }
+
+  function minYear(){ return ALL_CARDS.reduce((m,c)=> c.release_year && c.release_year<m ? c.release_year : m, 9999); }
+  function maxYear(){ return ALL_CARDS.reduce((m,c)=> c.release_year && c.release_year>m ? c.release_year : m, 0); }
+
+  function loadCards(db){
+    const cardRows = db.exec(`
+      SELECT c.card_id, c.card_name, c.product_code, c.card_number, c.civilization,
+             c.card_type, c.rarity, c.cost, c.power, c.ability_text, c.flavor_text,
+             c.image_url, c.thumb_url,
+             p.product_name, p.release_year, p.series
+      FROM cards c LEFT JOIN products p ON c.product_code = p.product_code
+    `)[0];
+
+    const racesByCard = groupByCardId(db, "SELECT card_id, race FROM card_races", "race");
+    const abilitiesByCard = groupByCardId(db, "SELECT card_id, ability FROM card_abilities", "ability");
+    const illustByCard = groupByCardId(db, "SELECT card_id, illustrator FROM card_illustrators", "illustrator");
+
+    if(!cardRows) { ALL_CARDS = []; return; }
+    const cols = cardRows.columns;
+    ALL_CARDS = cardRows.values.map(row=>{
+      const o = {};
+      cols.forEach((c,i)=> o[c]=row[i]);
+      o.civilizations = (o.civilization||"").split("/").filter(Boolean);
+      o.races = racesByCard[o.card_id] || [];
+      o.abilities = abilitiesByCard[o.card_id] || [];
+      o.illustrators = illustByCard[o.card_id] || [];
+      o._nameNorm = normalizeText(o.card_name);
+      o._abilityNorm = normalizeText(o.ability_text);
+      return o;
+    });
+  }
+
+  function groupByCardId(db, sql, valueCol){
+    const res = db.exec(sql)[0];
+    const map = {};
+    if(!res) return map;
+    const idIdx = res.columns.indexOf("card_id");
+    const valIdx = res.columns.indexOf(valueCol);
+    res.values.forEach(row=>{
+      const id = row[idIdx], val = row[valIdx];
+      if(!map[id]) map[id]=[];
+      if(val) map[id].push(val);
+    });
+    return map;
+  }
+
+  // ---------- facet definitions ----------
+  function buildFacetDefs(){
+    FACET_DEFS = [
+      { key:"civilization", label:"文明", getValues:c=>c.civilizations, order:CIV_ORDER },
+      { key:"cardType", label:"カードの種類", getValues:c=>c.card_type?[c.card_type]:[] },
+      { key:"rarity", label:"レアリティ", getValues:c=>c.rarity?[c.rarity]:[] },
+      { key:"race", label:"種族", getValues:c=>c.races, searchable:true },
+      { key:"ability", label:"特殊能力", getValues:c=>c.abilities, searchable:true },
+      { key:"series", label:"シリーズ", getValues:c=>c.series?[c.series]:[] },
+      { key:"product", label:"商品名（弾）", getValues:c=>c.product_code?[c.product_code+"｜"+(c.product_name||"")]:[], searchable:true },
+      { key:"illustrator", label:"イラストレーター", getValues:c=>c.illustrators, searchable:true },
+    ];
+    FACET_DEFS.forEach(def=>{
+      filters.facets[def.key] = { selected:new Set(), mode:"OR", search:"" };
+    });
+  }
+
+  function facetOptionCounts(def){
+    const counts = {};
+    ALL_CARDS.forEach(c=>{
+      def.getValues(c).forEach(v=>{
+        counts[v] = (counts[v]||0)+1;
+      });
+    });
+    let keys = Object.keys(counts);
+    if(def.order){
+      keys = def.order.filter(k=>counts[k]).concat(keys.filter(k=>!def.order.includes(k)));
+    } else {
+      keys = uniqSorted(keys);
+    }
+    return keys.map(k=>({value:k, count:counts[k]}));
+  }
+
+  // ---------- DOM: facet panel ----------
+  function buildFacetPanelDOM(){
+    const container = document.getElementById("facetContainer");
+    container.innerHTML = "";
+    FACET_DEFS.forEach(def=>{
+      const opts = facetOptionCounts(def);
+      const wrap = document.createElement("div");
+      wrap.className = "facet";
+      wrap.innerHTML = `
+        <div class="facet-head" data-target="body_${def.key}">
+          <h3>${def.label}</h3>
+          <span class="count-badge" id="badge_${def.key}"></span>
+          <span class="caret">▸</span>
+        </div>
+        <div class="facet-body" id="body_${def.key}">
+          ${def.searchable ? `<input type="text" class="facet-search" data-key="${def.key}" placeholder="${def.label}を検索...">` : ""}
+          <div class="facet-mode" data-key="${def.key}">
+            <button data-mode="OR" class="active">いずれか(OR)</button>
+            <button data-mode="AND">すべて(AND)</button>
+          </div>
+          <div class="facet-options" id="options_${def.key}"></div>
+        </div>
+      `;
+      container.appendChild(wrap);
+      renderFacetOptions(def, opts);
+    });
+  }
+
+  function renderFacetOptions(def, opts){
+    const box = document.getElementById("options_"+def.key);
+    const q = normalizeText(filters.facets[def.key].search);
+    const filtered = q ? opts.filter(o=> normalizeText(o.value).includes(q)) : opts;
+    box.innerHTML = filtered.map(o=>{
+      const id = "opt_"+def.key+"_"+btoa(unescape(encodeURIComponent(o.value))).replace(/[^a-zA-Z0-9]/g,"");
+      const checked = filters.facets[def.key].selected.has(o.value) ? "checked" : "";
+      return `<div class="facet-option">
+        <input type="checkbox" id="${id}" data-key="${def.key}" data-value="${escapeAttr(o.value)}" ${checked}>
+        <label for="${id}">${escapeHtml(o.value)}</label>
+        <span class="n">${o.count}</span>
+      </div>`;
+    }).join("");
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  // ---------- listeners ----------
+  function attachGlobalListeners(){
+    document.getElementById("filterToggleBtn").addEventListener("click", ()=>{
+      document.getElementById("filterPanel").classList.toggle("open");
+    });
+
+    document.addEventListener("click", (e)=>{
+      const head = e.target.closest(".facet-head");
+      if(head){
+        head.closest(".facet").classList.toggle("expanded");
+        return;
+      }
+      const modeBtn = e.target.closest(".facet-mode button");
+      if(modeBtn){
+        const key = modeBtn.parentElement.dataset.key;
+        filters.facets[key].mode = modeBtn.dataset.mode;
+        modeBtn.parentElement.querySelectorAll("button").forEach(b=>b.classList.toggle("active", b===modeBtn));
+        applyFiltersAndRender();
+        return;
+      }
+    });
+
+    document.addEventListener("change", (e)=>{
+      if(e.target.matches(".facet-options input[type=checkbox]")){
+        const key = e.target.dataset.key, val = e.target.dataset.value;
+        const set = filters.facets[key].selected;
+        if(e.target.checked) set.add(val); else set.delete(val);
+        applyFiltersAndRender();
+      }
+      if(e.target.id==="dedupeToggle"){ filters.dedupe = e.target.checked; applyFiltersAndRender(); }
+    });
+
+    document.addEventListener("input", (e)=>{
+      if(e.target.matches(".facet-search")){
+        const key = e.target.dataset.key;
+        filters.facets[key].search = e.target.value;
+        const def = FACET_DEFS.find(d=>d.key===key);
+        renderFacetOptions(def, facetOptionCounts(def));
+      }
+      if(e.target.id==="freeText"){ filters.freeText = e.target.value; applyFiltersAndRender(); }
+      if(e.target.id==="yearFrom"){ filters.yearFrom = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
+      if(e.target.id==="yearTo"){ filters.yearTo = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
+      if(e.target.id==="costFrom"){ filters.cost.from = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
+      if(e.target.id==="costTo"){ filters.cost.to = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
+      if(e.target.id==="powerFrom"){ filters.power.from = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
+      if(e.target.id==="powerTo"){ filters.power.to = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", ()=>{
+      filters.yearFrom=null; filters.yearTo=null; filters.dedupe=true; filters.freeText="";
+      filters.cost={from:null,to:null}; filters.power={from:null,to:null};
+      Object.values(filters.facets).forEach(f=>{ f.selected=new Set(); f.mode="OR"; f.search=""; });
+      document.querySelectorAll("#filterPanel input[type=text], #filterPanel input[type=number]").forEach(i=>i.value="");
+      document.getElementById("dedupeToggle").checked = true;
+      buildFacetPanelDOM();
+      applyFiltersAndRender();
+    });
+
+    document.getElementById("loadMoreBtn").addEventListener("click", ()=>{
+      visibleCount += PAGE_SIZE;
+      renderGrid(currentFilteredCards);
+    });
+
+    document.getElementById("grid").addEventListener("click", (e)=>{
+      const tile = e.target.closest(".card-tile");
+      if(tile) openModal(tile.dataset.cardId);
+    });
+    document.getElementById("modalClose").addEventListener("click", closeModal);
+    document.getElementById("modalOverlay").addEventListener("click", (e)=>{
+      if(e.target.id==="modalOverlay") closeModal();
+    });
+  }
+
+  // ---------- filtering ----------
+  let currentFilteredCards = [];
+
+  function matchesFacet(card, def, state){
+    if(state.selected.size===0) return true;
+    const values = def.getValues(card);
+    if(state.mode==="AND"){
+      for(const v of state.selected) if(!values.includes(v)) return false;
+      return true;
+    }
+    for(const v of state.selected) if(values.includes(v)) return true;
+    return false;
+  }
+
+  function applyFiltersAndRender(){
+    let list = ALL_CARDS.filter(c=>{
+      if(filters.yearFrom!=null && (c.release_year==null || c.release_year<filters.yearFrom)) return false;
+      if(filters.yearTo!=null && (c.release_year==null || c.release_year>filters.yearTo)) return false;
+      if(filters.cost.from!=null && (c.cost==null || c.cost<filters.cost.from)) return false;
+      if(filters.cost.to!=null && (c.cost==null || c.cost>filters.cost.to)) return false;
+      if(filters.power.from!=null && (c.power==null || c.power<filters.power.from)) return false;
+      if(filters.power.to!=null && (c.power==null || c.power>filters.power.to)) return false;
+      if(filters.freeText){
+        const q = normalizeText(filters.freeText);
+        if(!c._nameNorm.includes(q) && !c._abilityNorm.includes(q)) return false;
+      }
+      for(const def of FACET_DEFS){
+        if(!matchesFacet(c, def, filters.facets[def.key])) return false;
+      }
+      return true;
+    });
+
+    if(filters.dedupe){
+      const byName = new Map();
+      list.forEach(c=>{
+        const existing = byName.get(c.card_name);
+        if(!existing){ byName.set(c.card_name, c); return; }
+        if(c.release_year < existing.release_year ||
+           (c.release_year===existing.release_year && compareCode(c.product_code, existing.product_code)<0)){
+          byName.set(c.card_name, c);
+        }
+      });
+      list = Array.from(byName.values());
+    }
+
+    currentFilteredCards = list;
+    visibleCount = PAGE_SIZE;
+    document.getElementById("resultCount").innerHTML = `<b>${list.length.toLocaleString()}</b> 枚が該当`;
+    renderGrid(list);
+  }
+
+  // ---------- render grid ----------
+  function renderGrid(list){
+    const grid = document.getElementById("grid");
+    const slice = list.slice(0, visibleCount);
+    grid.innerHTML = slice.map(c=>`
+      <div class="card-tile" data-card-id="${c.card_id}">
+        <img src="${c.thumb_url}" alt="${escapeHtml(c.card_name)}" loading="lazy">
+        <div class="meta">
+          <div class="cname">${escapeHtml(c.card_name)}</div>
+          <div class="csub">${escapeHtml(c.product_code||"")} / ${c.release_year||"?"}</div>
+        </div>
+      </div>
+    `).join("");
+    document.getElementById("emptyMsg").hidden = list.length>0;
+    document.getElementById("loadMoreBtn").hidden = visibleCount>=list.length;
+  }
+
+  // ---------- modal ----------
+  function openModal(cardId){
+    const c = ALL_CARDS.find(x=>String(x.card_id)===String(cardId));
+    if(!c) return;
+    const tags = [
+      ...c.civilizations.map(v=>`<span class="tag-chip">${escapeHtml(v)}</span>`),
+      ...c.races.map(v=>`<span class="tag-chip">${escapeHtml(v)}</span>`),
+      ...c.abilities.map(v=>`<span class="tag-chip">${escapeHtml(v)}</span>`),
+    ].join("");
+    document.getElementById("modalBody").innerHTML = `
+      <img src="${c.image_url}" alt="${escapeHtml(c.card_name)}">
+      <div id="modalInfo">
+        <h2>${escapeHtml(c.card_name)}</h2>
+        <div class="row"><b>商品</b><span>${escapeHtml(c.product_code||"")} ${escapeHtml(c.product_name||"")}</span></div>
+        <div class="row"><b>カード番号</b><span>${escapeHtml(c.card_number||"-")}</span></div>
+        <div class="row"><b>発売年</b><span>${c.release_year||"-"}</span></div>
+        <div class="row"><b>シリーズ</b><span>${escapeHtml(c.series||"-")}</span></div>
+        <div class="row"><b>種類</b><span>${escapeHtml(c.card_type||"-")}</span></div>
+        <div class="row"><b>コスト/パワー</b><span>${c.cost??"-"} / ${c.power??"-"}</span></div>
+        <div class="row"><b>レアリティ</b><span>${escapeHtml(c.rarity||"-")}</span></div>
+        <div class="row"><b>イラスト</b><span>${escapeHtml(c.illustrators.join("、")||"-")}</span></div>
+        <div>${tags}</div>
+        <div class="ability-text">${escapeHtml(c.ability_text||"")}</div>
+      </div>
+    `;
+    document.getElementById("modalOverlay").classList.add("open");
+  }
+  function closeModal(){ document.getElementById("modalOverlay").classList.remove("open"); }
+
+  boot();
+})();
+</script>
+</body>
+</html>
