@@ -48,18 +48,18 @@
   header.site .stat-line{max-width:1400px; margin:10px auto 0; color:var(--text-faint); font-size:12.5px; font-family:"JetBrains Mono", monospace;}
 
   .layout{max-width:1400px; margin:0 auto; padding:18px 20px 80px; display:grid; grid-template-columns:300px 1fr; gap:22px;}
-  @media (max-width: 880px){ .layout{grid-template-columns:1fr; padding:60px 12px 40px;} }
+  @media (max-width: 880px){ .layout{grid-template-columns:1fr; padding:14px 12px 40px;} }
 
   #filterToggleBtn{display:none;}
   @media (max-width: 880px){
     #filterToggleBtn{
-      display:block; position:fixed; left:12px; right:12px; top:10px; z-index:40;
-      background:rgba(27,30,38,.92); color:var(--text-dim); border:1px solid var(--line);
-      padding:10px; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer;
+      display:block; position:sticky; top:8px; z-index:40; margin-bottom:10px;
+      background:rgba(224,85,63,.16); color:var(--text); border:1px solid rgba(224,85,63,.5);
+      padding:10px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;
       backdrop-filter:blur(4px);
     }
     #filterPanel{display:none;}
-    #filterPanel.open{display:block; position:fixed; inset:0; z-index:39; overflow-y:auto; padding:60px 14px 40px; background:var(--bg);}
+    #filterPanel.open{display:block; position:fixed; inset:0; z-index:39; overflow-y:auto; padding:14px 14px 40px; background:var(--bg);}
   }
 
   #filterPanel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; align-self:start; position:sticky; top:14px; max-height:calc(100vh - 28px); overflow-y:auto;}
@@ -162,7 +162,7 @@
   #modalBox{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); max-width:620px; width:100%; padding:20px; position:relative;}
   #modalClose{position:absolute; top:10px; right:12px; background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer;}
   #modalBody{display:flex; gap:18px; flex-wrap:wrap;}
-  #modalBody img{width:220px; max-width:100%; border-radius:var(--radius); background:#0c0d11;}
+  #modalBody img{width:220px; max-width:100%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;}
   #modalInfo{flex:1; min-width:220px; font-size:13px;}
   #modalInfo h2{font-size:17px; margin:0 0 8px;}
   #modalInfo .ability-text{white-space:pre-wrap; color:var(--text); font-size:13px; background:var(--panel-2); padding:10px; border-radius:var(--radius); margin-bottom:10px;}
@@ -376,15 +376,25 @@
   }
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-  // 画像読み込み失敗時の処理。公式サイト側が外部サイトからの参照元(Referrer)を
-  // 見て画像アクセスを制限している可能性を考慮し、referrerpolicy="no-referrer"を
-  // 付けたうえで、それでも失敗した場合は1回だけ再読み込みを試み、
+  // 画像読み込み失敗時の処理。
+  // 実機確認の結果、通常のカードは {card_id}.jpg だが、"V"から始まる特殊な
+  // カード番号を持つカード（例: dmr02-v01、ヴォルグ・サンダー等）は、実際の
+  // 画像ファイル名が {card_id}a.jpg（末尾に'a'が付く）であることが判明した。
+  // そのため、最初の失敗時は速攻でこの'a'付きファイル名を試す。
+  // それでも失敗する場合は、外部サイトからの参照元(Referrer)チェックによる
+  // 一時的な制限の可能性を考慮し、キャッシュを避けて再読み込みを試みる。
   // 最終的に失敗が続く場合はプレースホルダー表示に切り替える。
   window.handleImgError = function(img){
-    const retries = parseInt(img.dataset.retries || "0", 10);
-    if(retries < 2){
-      img.dataset.retries = String(retries + 1);
-      setTimeout(()=>{ img.src = img.src.split("?")[0] + "?retry=" + Date.now(); }, 400 * (retries + 1));
+    const stage = parseInt(img.dataset.stage || "0", 10);
+    const baseSrc = img.dataset.baseSrc || img.src.replace(/\?.*$/, "");
+    img.dataset.baseSrc = baseSrc;
+
+    if(stage === 0){
+      img.dataset.stage = "1";
+      img.src = baseSrc.replace(/\.jpg$/i, "a.jpg");
+    } else if(stage < 3){
+      img.dataset.stage = String(stage + 1);
+      setTimeout(()=>{ img.src = baseSrc + "?retry=" + Date.now(); }, 400 * stage);
     } else {
       img.onerror = null;
       img.style.objectFit = "none";
@@ -524,12 +534,7 @@
   // ---------- DOM: civilization ----------
   function buildCivRow(){
     const row = document.getElementById("civRow");
-    row.innerHTML = CIV_ORDER.map(c=>`<div class="civ-chip" data-civ="${c}" data-state="neutral" style="--chip-color:${CIV_COLOR[c]}"><span class="civ-chip-mark"></span>${c}</div>`).join("");
-  }
-  function refreshCivChipLabel(chip){
-    const state = chip.dataset.state;
-    const mark = state==="include" ? "✓ " : (state==="exclude" ? "✕ " : "");
-    chip.querySelector(".civ-chip-mark").textContent = mark;
+    row.innerHTML = CIV_ORDER.map(c=>`<div class="civ-chip" data-civ="${c}" data-state="neutral" style="--chip-color:${CIV_COLOR[c]}">${c}</div>`).join("");
   }
 
   // ---------- DOM: facet panel ----------
@@ -587,7 +592,6 @@
         const cur = civChip.dataset.state;
         const next = cur==="neutral" ? "include" : (cur==="include" ? "exclude" : "neutral");
         civChip.dataset.state = next;
-        refreshCivChipLabel(civChip);
         filters.civ.include.delete(civ); filters.civ.exclude.delete(civ);
         if(next==="include") filters.civ.include.add(civ);
         if(next==="exclude") filters.civ.exclude.add(civ);
