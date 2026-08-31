@@ -59,7 +59,7 @@
       backdrop-filter:blur(4px);
     }
     #filterPanel{display:none;}
-    #filterPanel.open{display:block; position:fixed; inset:0; z-index:39; overflow-y:auto; padding:14px 14px 40px; background:var(--bg);}
+    #filterPanel.open{display:block; position:fixed; inset:0; z-index:39; overflow-y:auto; padding:64px 14px 40px; background:var(--bg);}
   }
 
   #filterPanel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; align-self:start; position:sticky; top:14px; max-height:calc(100vh - 28px); overflow-y:auto;}
@@ -164,6 +164,16 @@
   #modalBody{display:flex; flex-direction:column; align-items:center; gap:14px;}
   #modalBody > img{width:220px; max-width:70%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;}
   #modalInfo{width:100%; font-size:13px;}
+  /* PCなど横幅に余裕がある画面では、画像を左に大きく・テキストをその右に配置する */
+  @media (min-width: 880px){
+    #modalBox{max-width:920px;}
+    #modalBody{flex-direction:row; align-items:flex-start; gap:28px;}
+    #modalBody > img{width:380px !important; max-width:42% !important; flex-shrink:0;}
+    #modalInfo{width:auto; flex:1; min-width:0;}
+    #modalBody .back-block{flex-direction:row !important; align-items:flex-start !important;}
+    #modalBody .back-block > img{width:220px !important; max-width:38% !important; flex-shrink:0;}
+    #modalBody .back-block .back-info{width:auto !important; flex:1;}
+  }
   #modalInfo h2{font-size:17px; margin:0 0 8px;}
   #modalInfo .ability-text{white-space:pre-wrap; color:var(--text); font-size:13px; background:var(--panel-2); padding:10px; border-radius:var(--radius); margin-bottom:10px;}
   #modalInfo .row{display:flex; gap:6px; padding:3px 0; border-bottom:1px solid var(--line); color:var(--text-dim);}
@@ -186,6 +196,16 @@
 
   <aside id="filterPanel">
     <div class="facet expanded">
+      <div class="facet-head" style="cursor:default;"><h3>表示オプション</h3></div>
+      <div class="facet-body" style="display:block;">
+        <div class="toggle-row">
+          <input type="checkbox" id="dedupeToggle" checked>
+          <label for="dedupeToggle">同名カードをまとめて1枚だけ表示（絞り込み条件に一致するもののうち最も古い版を採用）</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="facet expanded">
       <div class="facet-head" data-target="yearBody"><h3>発売年の範囲</h3><span class="caret">▸</span></div>
       <div class="facet-body" id="yearBody">
         <div class="range-row">
@@ -193,10 +213,6 @@
           <span>〜</span>
           <input type="number" id="yearTo" placeholder="終了年">
           <button class="range-reset" data-reset="year">リセット</button>
-        </div>
-        <div class="toggle-row">
-          <input type="checkbox" id="dedupeToggle" checked>
-          <label for="dedupeToggle">同名カードは範囲内で最古の1枚だけ表示</label>
         </div>
       </div>
     </div>
@@ -1005,9 +1021,9 @@
       backSection = `
         <div style="margin-top:16px; padding-top:14px; border-top:2px solid var(--line); width:100%;">
           <div style="font-size:11px; color:var(--text-faint); margin-bottom:6px;">裏面（サイキック・リンク等で複数枚が同じ裏面を共有することがあります）</div>
-          <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div class="back-block" style="display:flex; flex-direction:column; align-items:center; gap:10px;">
             <img src="${c.back_image_url||""}" alt="${escapeHtml(c.back_card_name||"")}" style="width:180px; max-width:60%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;" referrerpolicy="no-referrer" onerror="handleImgError(this)">
-            <div style="width:100%;">
+            <div class="back-info" style="width:100%;">
               <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(c.back_card_name||"-")}</div>
               <div class="ability-text" style="font-size:12px;">${escapeHtml(c.back_ability_text || "（能力テキストなし）")}</div>
               <div class="row"><b>文明</b><span>${escapeHtml(c.back_civilization||"-")}</span></div>
