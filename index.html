@@ -161,23 +161,24 @@
   #modalOverlay.open{display:flex;}
   #modalBox{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); max-width:620px; width:100%; padding:20px; position:relative;}
   #modalClose{position:absolute; top:10px; right:12px; background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer;}
-  #modalBody{display:flex; flex-direction:column; align-items:center; gap:14px;}
-  #modalBody > img{width:220px; max-width:70%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;}
-  #modalInfo{width:100%; font-size:13px;}
-  /* PCなど横幅に余裕がある画面では、画像を左に大きく・テキストをその右に配置する */
+  #modalBody{display:flex; flex-direction:column; gap:0;}
+  .card-section{display:flex; flex-direction:column; align-items:center; gap:14px; width:100%;}
+  .card-section-img{width:220px; max-width:70%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;}
+  .card-section-info{width:100%; font-size:13px;}
+  .card-divider{margin:18px 0; padding-top:16px; border-top:2px solid var(--line); width:100%;}
+  .card-divider-label{font-size:11px; color:var(--text-faint); margin-bottom:10px;}
+  /* PCなど横幅に余裕がある画面では、画像を左に大きく・テキストをその右に配置する。
+     表面・裏面どちらも同じ枠組み・同じ画像サイズで統一する。 */
   @media (min-width: 880px){
     #modalBox{max-width:920px;}
-    #modalBody{flex-direction:row; align-items:flex-start; gap:28px;}
-    #modalBody > img{width:380px !important; max-width:42% !important; flex-shrink:0;}
-    #modalInfo{width:auto; flex:1; min-width:0;}
-    #modalBody .back-block{flex-direction:row !important; align-items:flex-start !important;}
-    #modalBody .back-block > img{width:220px !important; max-width:38% !important; flex-shrink:0;}
-    #modalBody .back-block .back-info{width:auto !important; flex:1;}
+    .card-section{flex-direction:row; align-items:flex-start; gap:28px;}
+    .card-section-img{width:340px; max-width:42%; flex-shrink:0;}
+    .card-section-info{width:auto; flex:1; min-width:0;}
   }
-  #modalInfo h2{font-size:17px; margin:0 0 8px;}
-  #modalInfo .ability-text{white-space:pre-wrap; color:var(--text); font-size:13px; background:var(--panel-2); padding:10px; border-radius:var(--radius); margin-bottom:10px;}
-  #modalInfo .row{display:flex; gap:6px; padding:3px 0; border-bottom:1px solid var(--line); color:var(--text-dim);}
-  #modalInfo .row b{color:var(--text); min-width:78px; font-weight:700;}
+  #modalInfo h2, .card-section-info h2, .card-section-info h3{font-size:17px; margin:0 0 8px;}
+  #modalInfo .ability-text, .card-section-info .ability-text{white-space:pre-wrap; color:var(--text); font-size:13px; background:var(--panel-2); padding:10px; border-radius:var(--radius); margin-bottom:10px;}
+  #modalInfo .row, .card-section-info .row{display:flex; gap:6px; padding:3px 0; border-bottom:1px solid var(--line); color:var(--text-dim);}
+  #modalInfo .row b, .card-section-info .row b{color:var(--text); min-width:78px; font-weight:700;}
   .tag-chip{display:inline-block; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim); font-size:10.5px; padding:2px 7px; border-radius:10px; margin:2px 4px 2px 0;}
 </style>
 </head>
@@ -1007,6 +1008,20 @@
     document.getElementById("loadMoreBtn").hidden = visibleCount>=list.length;
   }
 
+  function renderCardSection(imgUrl, name, abilityText, rows){
+    const rowsHtml = rows.map(([label, value]) => `<div class="row"><b>${escapeHtml(label)}</b><span>${value}</span></div>`).join("");
+    return `
+      <div class="card-section">
+        <img class="card-section-img" src="${imgUrl||""}" alt="${escapeHtml(name||"")}" referrerpolicy="no-referrer" onerror="handleImgError(this)">
+        <div class="card-section-info">
+          <h3>${escapeHtml(name||"-")}</h3>
+          <div class="ability-text">${escapeHtml(abilityText || "（能力テキストなし）")}</div>
+          ${rowsHtml}
+        </div>
+      </div>
+    `;
+  }
+
   function openModal(cardId){
     const c = ALL_CARDS.find(x=>String(x.card_id)===String(cardId));
     if(!c) return;
@@ -1016,43 +1031,37 @@
       ...c.abilities.map(v=>`<span class="tag-chip">${escapeHtml(v)}</span>`),
     ].join("");
 
-    let backSection = "";
+    const frontRows = [
+      ["商品", `${escapeHtml(c.product_code||"")} ${escapeHtml(c.product_name||"")}`],
+      ["カード番号", escapeHtml(c.card_number||"-")],
+      ["発売年", c.release_year||"-"],
+      ["シリーズ", escapeHtml(c.series||"-")],
+      ["文明", escapeHtml(c.civilizations.join("/")||"-")],
+      ["種類", escapeHtml(c.card_type||"-")],
+      ["コスト/パワー", `${c.cost??"-"} / ${c.power??"-"}`],
+      ["レアリティ", escapeHtml(c.rarity||"-")],
+      ["種族", escapeHtml(c.races.join("、")||"-")],
+      ["イラスト", escapeHtml(c.illustrators.join("、")||"-")],
+    ];
+    let html = renderCardSection(c.image_url, c.card_name, c.ability_text, frontRows);
+    html += `<div style="width:100%;">${tags}</div>`;
+
     if(c.has_back_side){
-      backSection = `
-        <div style="margin-top:16px; padding-top:14px; border-top:2px solid var(--line); width:100%;">
-          <div style="font-size:11px; color:var(--text-faint); margin-bottom:6px;">裏面（サイキック・リンク等で複数枚が同じ裏面を共有することがあります）</div>
-          <div class="back-block" style="display:flex; flex-direction:column; align-items:center; gap:10px;">
-            <img src="${c.back_image_url||""}" alt="${escapeHtml(c.back_card_name||"")}" style="width:180px; max-width:60%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;" referrerpolicy="no-referrer" onerror="handleImgError(this)">
-            <div class="back-info" style="width:100%;">
-              <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(c.back_card_name||"-")}</div>
-              <div class="ability-text" style="font-size:12px;">${escapeHtml(c.back_ability_text || "（能力テキストなし）")}</div>
-              <div class="row"><b>文明</b><span>${escapeHtml(c.back_civilization||"-")}</span></div>
-              <div class="row"><b>種類</b><span>${escapeHtml(c.back_card_type||"-")}</span></div>
-              <div class="row"><b>コスト/パワー</b><span>${c.back_cost??"-"} / ${c.back_power??"-"}</span></div>
-              <div class="row"><b>種族</b><span>${escapeHtml((c.back_race||"").split("/").join("、")||"-")}</span></div>
-            </div>
-          </div>
+      const backRows = [
+        ["文明", escapeHtml(c.back_civilization||"-")],
+        ["種類", escapeHtml(c.back_card_type||"-")],
+        ["コスト/パワー", `${c.back_cost??"-"} / ${c.back_power??"-"}`],
+        ["種族", escapeHtml((c.back_race||"").split("/").join("、")||"-")],
+      ];
+      html += `
+        <div class="card-divider">
+          <div class="card-divider-label">裏面（サイキック・リンク等で複数枚が同じ裏面を共有することがあります）</div>
+          ${renderCardSection(c.back_image_url, c.back_card_name, c.back_ability_text, backRows)}
         </div>
       `;
     }
 
-    document.getElementById("modalBody").innerHTML = `
-      <img src="${c.image_url}" alt="${escapeHtml(c.card_name)}" referrerpolicy="no-referrer" onerror="handleImgError(this)">
-      <div id="modalInfo">
-        <h2>${escapeHtml(c.card_name)}</h2>
-        <div class="ability-text">${escapeHtml(c.ability_text || "（能力テキストなし）")}</div>
-        <div class="row"><b>商品</b><span>${escapeHtml(c.product_code||"")} ${escapeHtml(c.product_name||"")}</span></div>
-        <div class="row"><b>カード番号</b><span>${escapeHtml(c.card_number||"-")}</span></div>
-        <div class="row"><b>発売年</b><span>${c.release_year||"-"}</span></div>
-        <div class="row"><b>シリーズ</b><span>${escapeHtml(c.series||"-")}</span></div>
-        <div class="row"><b>種類</b><span>${escapeHtml(c.card_type||"-")}</span></div>
-        <div class="row"><b>コスト/パワー</b><span>${c.cost??"-"} / ${c.power??"-"}</span></div>
-        <div class="row"><b>レアリティ</b><span>${escapeHtml(c.rarity||"-")}</span></div>
-        <div class="row"><b>イラスト</b><span>${escapeHtml(c.illustrators.join("、")||"-")}</span></div>
-        <div>${tags}</div>
-        ${backSection}
-      </div>
-    `;
+    document.getElementById("modalBody").innerHTML = html;
     document.getElementById("modalOverlay").classList.add("open");
   }
   function closeModal(){ document.getElementById("modalOverlay").classList.remove("open"); }
