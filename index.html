@@ -161,9 +161,9 @@
   #modalOverlay.open{display:flex;}
   #modalBox{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); max-width:620px; width:100%; padding:20px; position:relative;}
   #modalClose{position:absolute; top:10px; right:12px; background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer;}
-  #modalBody{display:flex; gap:18px; flex-wrap:wrap;}
-  #modalBody img{width:220px; max-width:100%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;}
-  #modalInfo{flex:1; min-width:220px; font-size:13px;}
+  #modalBody{display:flex; flex-direction:column; align-items:center; gap:14px;}
+  #modalBody > img{width:220px; max-width:70%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;}
+  #modalInfo{width:100%; font-size:13px;}
   #modalInfo h2{font-size:17px; margin:0 0 8px;}
   #modalInfo .ability-text{white-space:pre-wrap; color:var(--text); font-size:13px; background:var(--panel-2); padding:10px; border-radius:var(--radius); margin-bottom:10px;}
   #modalInfo .row{display:flex; gap:6px; padding:3px 0; border-bottom:1px solid var(--line); color:var(--text-dim);}
@@ -508,8 +508,11 @@
       applyFiltersAndRender();
 
       document.getElementById("loadingMsg").hidden = true;
-      document.getElementById("statLine").textContent =
-        `全 ${ALL_CARDS.length.toLocaleString()} 枚 / 発売年 ${minYear()}〜${maxYear()}年を収録`;
+      const statEl = document.getElementById("statLine");
+      statEl.textContent = `全 ${ALL_CARDS.length.toLocaleString()} 枚 / 発売年 ${minYear()}〜${maxYear()}年を収録`;
+      if(statEl.dataset.legacyWarning){
+        statEl.textContent += "（旧形式のDBのため、サイキック・クリーチャー等の裏面情報は表示されません。最新のduelmasters.dbに差し替えてください）";
+      }
     }catch(err){
       console.error(err);
       document.getElementById("loadingMsg").textContent =
@@ -521,7 +524,7 @@
   function maxYear(){ return ALL_CARDS.reduce((m,c)=> c.release_year && c.release_year>m ? c.release_year : m, 0); }
 
   function loadCards(db){
-    const cardRows = db.exec(`
+    const FULL_QUERY = `
       SELECT c.card_id, c.card_name, c.product_code, c.card_number, c.civilization,
              c.card_type, c.rarity, c.cost, c.power, c.ability_text, c.flavor_text,
              c.image_url, c.thumb_url,
@@ -530,7 +533,28 @@
              c.back_ability_text, c.back_flavor_text, c.back_image_url,
              p.product_name, p.release_year, p.series
       FROM cards c LEFT JOIN products p ON c.product_code = p.product_code
-    `)[0];
+    `;
+    // 裏面カード対応(has_back_side等)より前の古い形式のduelmasters.dbが
+    // 読み込まれた場合に備え、失敗したら裏面列を含まないクエリで再試行する。
+    // これにより、DBとindex.htmlのバージョンが行き違っていても、
+    // 完全に読み込み失敗にはならず、裏面情報だけが無い状態で動作を続けられる。
+    const LEGACY_QUERY = `
+      SELECT c.card_id, c.card_name, c.product_code, c.card_number, c.civilization,
+             c.card_type, c.rarity, c.cost, c.power, c.ability_text, c.flavor_text,
+             c.image_url, c.thumb_url,
+             p.product_name, p.release_year, p.series
+      FROM cards c LEFT JOIN products p ON c.product_code = p.product_code
+    `;
+
+    let cardRows;
+    let hasBackColumns = true;
+    try{
+      cardRows = db.exec(FULL_QUERY)[0];
+    }catch(e){
+      console.warn("裏面カード対応列が無い古い形式のDBのようです。裏面情報なしで読み込みます:", e.message);
+      hasBackColumns = false;
+      cardRows = db.exec(LEGACY_QUERY)[0];
+    }
 
     const racesByCard = groupByCardId(db, "SELECT card_id, race FROM card_races", "race");
     const abilitiesByCard = groupByCardId(db, "SELECT card_id, ability FROM card_abilities", "ability");
@@ -541,6 +565,7 @@
     ALL_CARDS = cardRows.values.map(row=>{
       const o = {};
       cols.forEach((c,i)=> o[c]=row[i]);
+      if(!hasBackColumns) o.has_back_side = 0;
       o.civilizations = (o.civilization||"").split("/").filter(Boolean);
       o.races = racesByCard[o.card_id] || [];
       o.abilities = abilitiesByCard[o.card_id] || [];
@@ -552,6 +577,10 @@
       PRODUCT_CHRONO[o.product_code] = o.release_year;
       return o;
     });
+
+    if(!hasBackColumns){
+      document.getElementById("statLine").dataset.legacyWarning = "1";
+    }
   }
 
   function groupByCardId(db, sql, valueCol){
@@ -957,11 +986,11 @@
     let backSection = "";
     if(c.has_back_side){
       backSection = `
-        <div style="margin-top:16px; padding-top:14px; border-top:2px solid var(--line);">
+        <div style="margin-top:16px; padding-top:14px; border-top:2px solid var(--line); width:100%;">
           <div style="font-size:11px; color:var(--text-faint); margin-bottom:6px;">裏面（サイキック・リンク等で複数枚が同じ裏面を共有することがあります）</div>
-          <div style="display:flex; gap:14px; flex-wrap:wrap;">
-            <img src="${c.back_image_url||""}" alt="${escapeHtml(c.back_card_name||"")}" style="width:150px; max-width:45%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;" referrerpolicy="no-referrer" onerror="handleImgError(this)">
-            <div style="flex:1; min-width:160px;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+            <img src="${c.back_image_url||""}" alt="${escapeHtml(c.back_card_name||"")}" style="width:180px; max-width:60%; aspect-ratio:5/7; object-fit:contain; border-radius:var(--radius); background:#0c0d11;" referrerpolicy="no-referrer" onerror="handleImgError(this)">
+            <div style="width:100%;">
               <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(c.back_card_name||"-")}</div>
               <div class="ability-text" style="font-size:12px;">${escapeHtml(c.back_ability_text || "（能力テキストなし）")}</div>
               <div class="row"><b>文明</b><span>${escapeHtml(c.back_civilization||"-")}</span></div>
