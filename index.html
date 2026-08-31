@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DM Archive — クラシックレギュレーション カード検索</title>
+<title>DM Archive — 非公式カード検索データベース</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -22,186 +22,153 @@
     --civ-shizen: #4fa34a;
     --civ-zero: #838a97;
     --accent: #e0553f;
+    --danger: #d9534f;
     --radius: 3px;
+    --tile-min: 140px;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--bg);
-    color:var(--text);
+    background:var(--bg); color:var(--text);
     font-family:"Zen Kaku Gothic New", "Hiragino Sans", sans-serif;
-    line-height:1.6;
-    min-height:100vh;
+    line-height:1.6; min-height:100vh;
   }
   code, .mono{font-family:"JetBrains Mono", monospace;}
+  button{font-family:inherit;}
 
-  /* ---------- header ---------- */
   header.site{
-    padding:28px 20px 22px;
-    border-bottom:1px solid var(--line);
+    padding:28px 20px 22px; border-bottom:1px solid var(--line);
     background:
       linear-gradient(90deg, var(--civ-hikari) 0 16.6%, var(--civ-mizu) 16.6% 33.2%, var(--civ-yami) 33.2% 49.8%, var(--civ-hi) 49.8% 66.4%, var(--civ-shizen) 66.4% 83%, var(--civ-zero) 83% 100%) top/100% 3px no-repeat,
       var(--bg);
   }
-  header.site .title-row{
-    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
-    max-width:1400px; margin:0 auto;
-  }
-  header.site h1{
-    font-size:22px; font-weight:900; letter-spacing:.02em; margin:0;
-  }
-  header.site .subtitle{
-    color:var(--text-dim); font-size:13px;
-  }
-  header.site .stat-line{
-    max-width:1400px; margin:10px auto 0; color:var(--text-faint); font-size:12.5px;
-    font-family:"JetBrains Mono", monospace;
-  }
+  header.site .title-row{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; max-width:1400px; margin:0 auto;}
+  header.site h1{font-size:22px; font-weight:900; letter-spacing:.02em; margin:0;}
+  header.site .subtitle{color:var(--text-dim); font-size:13px;}
+  header.site .stat-line{max-width:1400px; margin:10px auto 0; color:var(--text-faint); font-size:12.5px; font-family:"JetBrains Mono", monospace;}
 
-  /* ---------- layout ---------- */
-  .layout{
-    max-width:1400px; margin:0 auto; padding:18px 20px 60px;
-    display:grid; grid-template-columns:300px 1fr; gap:22px;
-  }
-  @media (max-width: 880px){
-    .layout{grid-template-columns:1fr; padding:14px 12px 40px;}
-  }
+  .layout{max-width:1400px; margin:0 auto; padding:18px 20px 80px; display:grid; grid-template-columns:300px 1fr; gap:22px;}
+  @media (max-width: 880px){ .layout{grid-template-columns:1fr; padding:14px 12px 90px;} }
 
-  /* ---------- filter panel ---------- */
   #filterToggleBtn{display:none;}
   @media (max-width: 880px){
     #filterToggleBtn{
-      display:block; width:100%; margin-top:12px;
-      background:var(--panel-2); color:var(--text); border:1px solid var(--line);
-      padding:10px; border-radius:var(--radius); font-size:14px; cursor:pointer;
+      display:block; position:fixed; left:12px; right:12px; bottom:12px; z-index:40;
+      background:var(--accent); color:#fff; border:none;
+      padding:12px; border-radius:6px; font-size:14px; font-weight:700; cursor:pointer;
+      box-shadow:0 4px 16px rgba(0,0,0,.4);
     }
     #filterPanel{display:none;}
-    #filterPanel.open{display:block;}
+    #filterPanel.open{display:block; position:fixed; inset:0; z-index:39; overflow-y:auto; padding:14px 14px 90px; background:var(--bg);}
   }
 
-  #filterPanel{
-    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    padding:14px; align-self:start; position:sticky; top:14px;
-    max-height:calc(100vh - 28px); overflow-y:auto;
-  }
+  #filterPanel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; align-self:start; position:sticky; top:14px; max-height:calc(100vh - 28px); overflow-y:auto;}
   .facet{border-bottom:1px solid var(--line); padding:10px 0;}
   .facet:last-child{border-bottom:none;}
-  .facet-head{
-    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
-    user-select:none;
-  }
-  .facet-head h3{font-size:13px; margin:0; font-weight:700; letter-spacing:.02em;}
-  .facet-head .count-badge{
-    font-size:10.5px; color:var(--text-faint); font-family:"JetBrains Mono", monospace;
-  }
+  .facet-head{display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; gap:6px;}
+  .facet-head h3{font-size:13px; margin:0; font-weight:700; letter-spacing:.02em; flex:1;}
+  .facet-head .caret{color:var(--text-faint); font-size:11px; transition:transform .15s; flex-shrink:0;}
+  .facet.expanded .facet-head .caret{transform:rotate(90deg);}
   .facet-body{margin-top:8px; display:none;}
   .facet.expanded .facet-body{display:block;}
-  .facet-head .caret{color:var(--text-faint); font-size:11px; transition:transform .15s;}
-  .facet.expanded .facet-head .caret{transform:rotate(90deg);}
 
-  .facet-search{
+  .input-wrap{position:relative;}
+  .input-wrap input[type=text]{
     width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    padding:6px 8px; font-size:12.5px; border-radius:var(--radius); margin-bottom:6px;
+    padding:6px 26px 6px 8px; font-size:12.5px; border-radius:var(--radius);
   }
-  .facet-mode{
-    display:flex; gap:4px; margin-bottom:6px;
+  .input-wrap .clear-x{
+    position:absolute; right:5px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:14px; padding:2px 4px; line-height:1;
   }
-  .facet-mode button{
-    flex:1; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
-    font-size:11px; padding:4px 0; cursor:pointer; border-radius:var(--radius);
+  .input-wrap .clear-x:hover{color:var(--danger);}
+
+  .facet-search{margin-bottom:6px;}
+
+  .toggle-switch{
+    display:inline-flex; align-items:center; gap:0; border:1px solid var(--line); border-radius:14px;
+    background:var(--panel-2); cursor:pointer; font-size:11px; overflow:hidden; user-select:none;
   }
-  .facet-mode button.active{
-    background:var(--accent); color:#fff; border-color:var(--accent);
+  .toggle-switch span{padding:4px 10px; color:var(--text-faint);}
+  .toggle-switch span.on{background:var(--accent); color:#fff; font-weight:700;}
+  .mode-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+  .mode-row .mode-label{font-size:11px; color:var(--text-faint);}
+
+  .select-all-row{display:flex; gap:10px; margin-bottom:5px;}
+  .select-all-row button{
+    background:none; border:none; color:var(--text-faint); font-size:11px; cursor:pointer; padding:0; text-decoration:underline;
   }
-  .facet-options{max-height:180px; overflow-y:auto;}
-  .facet-option{
-    display:flex; align-items:center; gap:6px; font-size:12.5px; padding:2px 0; color:var(--text-dim);
-  }
+  .select-all-row button:hover{color:var(--accent);}
+
+  .facet-options{max-height:190px; overflow-y:auto;}
+  .facet-option{display:flex; align-items:center; gap:6px; font-size:12.5px; padding:2px 0; color:var(--text-dim);}
   .facet-option input{accent-color:var(--accent); flex-shrink:0;}
   .facet-option label{cursor:pointer; flex:1;}
   .facet-option .n{color:var(--text-faint); font-size:10.5px; font-family:"JetBrains Mono", monospace;}
 
-  .range-row{display:flex; align-items:center; gap:6px;}
-  .range-row input[type=number]{
-    width:70px; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    padding:5px 6px; font-size:12.5px; border-radius:var(--radius);
+  /* civilization: 3-state chips */
+  .civ-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
+  .civ-chip{
+    padding:6px 10px; border-radius:14px; font-size:12px; cursor:pointer; user-select:none;
+    border:1.5px solid var(--line); color:var(--text-dim); background:var(--panel-2);
   }
+  .civ-chip[data-state="include"]{color:#fff; border-color:transparent;}
+  .civ-chip[data-state="exclude"]{color:var(--danger); border-color:var(--danger); background:transparent; text-decoration:line-through;}
+  .colorcount-row{display:flex; gap:6px; margin-bottom:8px;}
+  .colorcount-row button{
+    flex:1; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+    font-size:11px; padding:5px 0; cursor:pointer; border-radius:var(--radius);
+  }
+  .colorcount-row button.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+
+  .range-row{display:flex; align-items:center; gap:6px;}
+  .range-row input[type=number]{width:64px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:5px 6px; font-size:12.5px; border-radius:var(--radius);}
   .range-row span{color:var(--text-faint); font-size:12px;}
+  .range-reset{background:none; border:none; color:var(--text-faint); font-size:11px; cursor:pointer; text-decoration:underline; margin-left:4px;}
+  .range-reset:hover{color:var(--accent);}
 
   .toggle-row{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-top:4px;}
   .toggle-row input{accent-color:var(--accent);}
 
-  #freeText{
-    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    padding:8px 10px; font-size:13px; border-radius:var(--radius);
-  }
+  .fw-target-row{display:flex; gap:10px; margin:6px 0; flex-wrap:wrap;}
+  .fw-target-row label{display:flex; align-items:center; gap:4px; font-size:11.5px; color:var(--text-dim);}
+  .fw-target-row input{accent-color:var(--accent);}
 
-  #resetBtn{
-    width:100%; margin-top:12px; background:transparent; border:1px solid var(--line);
-    color:var(--text-dim); padding:8px; border-radius:var(--radius); font-size:12.5px; cursor:pointer;
-  }
+  #resetBtn{width:100%; margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text-dim); padding:8px; border-radius:var(--radius); font-size:12.5px; cursor:pointer;}
   #resetBtn:hover{border-color:var(--accent); color:var(--text);}
 
-  /* ---------- results ---------- */
-  .result-head{
-    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;
-    margin-bottom:14px; color:var(--text-dim); font-size:13px;
-  }
+  .result-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; color:var(--text-dim); font-size:13px;}
   #resultCount b{color:var(--text); font-family:"JetBrains Mono", monospace;}
+  .display-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .display-controls select{background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:5px 8px; border-radius:var(--radius); font-size:12px;}
+  .display-controls button.dir-btn{background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:5px 9px; border-radius:var(--radius); font-size:12px; cursor:pointer;}
+  .size-row{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-faint);}
+  .size-row input[type=range]{accent-color:var(--accent);}
 
-  .grid{
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:12px;
-  }
-  .card-tile{
-    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    overflow:hidden; cursor:pointer; transition:border-color .12s, transform .12s;
-  }
+  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--tile-min), 1fr)); gap:12px;}
+  .card-tile{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; cursor:pointer; transition:border-color .12s, transform .12s;}
   .card-tile:hover{border-color:var(--accent); transform:translateY(-2px);}
-  .card-tile img{
-    width:100%; aspect-ratio:5/7; object-fit:contain; background:#0c0d11; display:block;
-  }
-  .card-tile .meta{padding:6px 8px 8px;}
-  .card-tile .cname{font-size:11.5px; font-weight:700; line-height:1.3;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
-  .card-tile .csub{font-size:10px; color:var(--text-faint); margin-top:3px; font-family:"JetBrains Mono", monospace;}
+  .card-tile img{width:100%; aspect-ratio:5/7; object-fit:contain; background:#0c0d11; display:block;}
+  .card-tile .meta{padding:5px 7px 7px; font-size:10.5px; color:var(--text-faint); font-family:"JetBrains Mono", monospace; display:flex; justify-content:space-between;}
 
-  #loadMoreBtn{
-    display:block; margin:26px auto 0; background:var(--panel-2); border:1px solid var(--line);
-    color:var(--text); padding:10px 26px; border-radius:var(--radius); font-size:13px; cursor:pointer;
-  }
+  #loadMoreBtn{display:block; margin:26px auto 0; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:10px 26px; border-radius:var(--radius); font-size:13px; cursor:pointer;}
   #loadMoreBtn:hover{border-color:var(--accent);}
   #loadMoreBtn[hidden]{display:none;}
-
-  #loadingMsg, #emptyMsg{
-    text-align:center; color:var(--text-faint); padding:60px 0; font-size:13px;
-  }
+  #loadingMsg, #emptyMsg{text-align:center; color:var(--text-faint); padding:60px 0; font-size:13px;}
   #emptyMsg[hidden], #loadingMsg[hidden]{display:none;}
 
-  /* ---------- modal ---------- */
-  #modalOverlay{
-    position:fixed; inset:0; background:rgba(6,7,9,.86); display:none;
-    align-items:flex-start; justify-content:center; padding:30px 16px; overflow-y:auto; z-index:50;
-  }
+  #modalOverlay{position:fixed; inset:0; background:rgba(6,7,9,.86); display:none; align-items:flex-start; justify-content:center; padding:30px 16px; overflow-y:auto; z-index:50;}
   #modalOverlay.open{display:flex;}
-  #modalBox{
-    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    max-width:620px; width:100%; padding:20px; position:relative;
-  }
-  #modalClose{
-    position:absolute; top:10px; right:12px; background:none; border:none; color:var(--text-dim);
-    font-size:20px; cursor:pointer;
-  }
+  #modalBox{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); max-width:620px; width:100%; padding:20px; position:relative;}
+  #modalClose{position:absolute; top:10px; right:12px; background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer;}
   #modalBody{display:flex; gap:18px; flex-wrap:wrap;}
   #modalBody img{width:220px; max-width:100%; border-radius:var(--radius); background:#0c0d11;}
   #modalInfo{flex:1; min-width:220px; font-size:13px;}
-  #modalInfo h2{font-size:17px; margin:0 0 4px;}
+  #modalInfo h2{font-size:17px; margin:0 0 8px;}
+  #modalInfo .ability-text{white-space:pre-wrap; color:var(--text); font-size:13px; background:var(--panel-2); padding:10px; border-radius:var(--radius); margin-bottom:10px;}
   #modalInfo .row{display:flex; gap:6px; padding:3px 0; border-bottom:1px solid var(--line); color:var(--text-dim);}
   #modalInfo .row b{color:var(--text); min-width:78px; font-weight:700;}
-  #modalInfo .ability-text{margin-top:10px; white-space:pre-wrap; color:var(--text-dim); font-size:12.5px;}
-  .tag-chip{
-    display:inline-block; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
-    font-size:10.5px; padding:2px 7px; border-radius:10px; margin:2px 4px 2px 0;
-  }
+  .tag-chip{display:inline-block; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim); font-size:10.5px; padding:2px 7px; border-radius:10px; margin:2px 4px 2px 0;}
 </style>
 </head>
 <body>
@@ -209,22 +176,23 @@
 <header class="site">
   <div class="title-row">
     <h1>DM Archive</h1>
-    <span class="subtitle">クラシックレギュレーション カード検索</span>
+    <span class="subtitle">非公式カード検索データベース</span>
   </div>
   <div class="stat-line" id="statLine">読み込み中...</div>
 </header>
 
 <div class="layout">
-  <button id="filterToggleBtn">絞り込み条件を開く ▾</button>
+  <button id="filterToggleBtn">絞り込み条件 ▾</button>
 
   <aside id="filterPanel">
-    <div class="facet">
+    <div class="facet expanded">
       <div class="facet-head" data-target="yearBody"><h3>発売年の範囲</h3><span class="caret">▸</span></div>
       <div class="facet-body" id="yearBody">
         <div class="range-row">
           <input type="number" id="yearFrom" placeholder="開始年">
           <span>〜</span>
           <input type="number" id="yearTo" placeholder="終了年">
+          <button class="range-reset" data-reset="year">リセット</button>
         </div>
         <div class="toggle-row">
           <input type="checkbox" id="dedupeToggle" checked>
@@ -233,10 +201,22 @@
       </div>
     </div>
 
-    <div class="facet">
+    <div class="facet expanded">
       <div class="facet-head" data-target="freeTextBody"><h3>フリーワード</h3><span class="caret">▸</span></div>
       <div class="facet-body" id="freeTextBody">
-        <input type="text" id="freeText" placeholder="カード名・能力テキストなど（中黒の有無は無視）">
+        <div class="input-wrap">
+          <input type="text" id="freeText" placeholder="単語をスペース区切りで複数指定可">
+          <button class="clear-x" data-clear="freeText">×</button>
+        </div>
+        <div class="fw-target-row">
+          <label><input type="checkbox" id="fwTargetName" checked> カード名</label>
+          <label><input type="checkbox" id="fwTargetText" checked> テキスト</label>
+          <label><input type="checkbox" id="fwTargetRace"> 種族</label>
+        </div>
+        <div class="mode-row">
+          <span class="mode-label">複数語の場合</span>
+          <div class="toggle-switch" id="fwModeToggle"><span class="on" data-val="OR">いずれか</span><span data-val="AND">すべて</span></div>
+        </div>
       </div>
     </div>
 
@@ -247,6 +227,7 @@
           <input type="number" id="costFrom" placeholder="下限">
           <span>〜</span>
           <input type="number" id="costTo" placeholder="上限">
+          <button class="range-reset" data-reset="cost">リセット</button>
         </div>
       </div>
     </div>
@@ -258,11 +239,25 @@
           <input type="number" id="powerFrom" placeholder="下限">
           <span>〜</span>
           <input type="number" id="powerTo" placeholder="上限">
+          <button class="range-reset" data-reset="power">リセット</button>
         </div>
       </div>
     </div>
 
-    <div id="facetContainer"><!-- civilization / cardType / race / rarity / ability / series / product / illustrator が動的挿入される --></div>
+    <div class="facet">
+      <div class="facet-head" data-target="civBody"><h3>文明</h3><span class="caret">▸</span></div>
+      <div class="facet-body" id="civBody">
+        <div class="colorcount-row" id="colorCountRow">
+          <button data-mode="any" class="active">指定なし</button>
+          <button data-mode="mono">単色のみ</button>
+          <button data-mode="multi">多色のみ</button>
+        </div>
+        <div class="civ-row" id="civRow"></div>
+        <div style="font-size:10.5px; color:var(--text-faint);">クリックで 指定なし→含む→含まない を切替</div>
+      </div>
+    </div>
+
+    <div id="facetContainer"><!-- cardType / race / rarity / ability / series / product / illustrator --></div>
 
     <button id="resetBtn">条件をすべてリセット</button>
   </aside>
@@ -270,6 +265,19 @@
   <main>
     <div class="result-head">
       <div id="resultCount">-</div>
+      <div class="display-controls">
+        <select id="sortKey">
+          <option value="release">発売順</option>
+          <option value="name">カード名順</option>
+          <option value="cost">コスト順</option>
+          <option value="power">パワー順</option>
+        </select>
+        <button id="sortDirBtn" class="dir-btn">▲昇順</button>
+        <div class="size-row">
+          <label for="sizeSlider">表示サイズ</label>
+          <input type="range" id="sizeSlider" min="100" max="240" step="10">
+        </div>
+      </div>
     </div>
     <div id="loadingMsg">データベースを読み込んでいます...</div>
     <div id="emptyMsg" hidden>条件に一致するカードが見つかりませんでした。</div>
@@ -292,27 +300,65 @@
 
   const DB_PATH = "./duelmasters.db";
   const PAGE_SIZE = 60;
+  const LS_KEY = "dmArchivePrefs";
 
-  const CIV_COLOR = {
-    "光":"var(--civ-hikari)", "水":"var(--civ-mizu)", "闇":"var(--civ-yami)",
-    "火":"var(--civ-hi)", "自然":"var(--civ-shizen)", "ゼロ":"var(--civ-zero)"
-  };
+  const CIV_COLOR = { "光":"var(--civ-hikari)", "水":"var(--civ-mizu)", "闇":"var(--civ-yami)", "火":"var(--civ-hi)", "自然":"var(--civ-shizen)", "ゼロ":"var(--civ-zero)" };
   const CIV_ORDER = ["光","水","闇","火","自然","ゼロ"];
+  const RARITY_ORDER = ["-","C","U","R","VR","SR","VIC"];
 
-  // ---------- state ----------
-  let ALL_CARDS = [];          // 全カード(civilizations配列, races配列 等を持つオブジェクト)
-  let FACET_DEFS = [];         // {key, label, kind:'multi', getValues(card)} の一覧
-  let filters = {
-    yearFrom:null, yearTo:null, dedupe:true, freeText:"",
-    cost:{from:null,to:null}, power:{from:null,to:null},
-    facets:{} // key -> {selected:Set, mode:'OR'|'AND', search:''}
+  // カードの種類の統合ルール。今後似た名前の種類が増えた場合は、ここに追記していく方針。
+  // 1) 「進化クリーチャー(◯◯)」「進化クリーチャー（◯◯）」系統は、丸括弧部分を除去して
+  //    すべて「進化クリーチャー」に統合する（下の関数で自動処理）。
+  // 2) それ以外の特殊な派生名は、下記の対応表で個別に派生元へ統合する。
+  const CARD_TYPE_MERGE_MAP = {
+    "サイキック・スーパー・クリーチャー": "サイキック・クリーチャー",
+    "進化エグザイル・クリーチャー": "エグザイル・クリーチャー",
+    "進化クロスギア": "クロスギア",
   };
+  function normalizeCardType(t){
+    if(!t) return t;
+    // 丸括弧(半角/全角)とその中身を除去
+    let out = t.replace(/[（(][^）)]*[）)]/g, "");
+    if(CARD_TYPE_MERGE_MAP[out]) out = CARD_TYPE_MERGE_MAP[out];
+    return out;
+  }
+
+  let ALL_CARDS = [];
+  let FACET_DEFS = [];
+  let SERIES_ORDER = [];   // シリーズ名を発売順に並べた配列
+  let PRODUCT_CHRONO = {}; // product_code -> release_year (商品名欄の並び替え用)
+
+  let filters = {
+    yearFrom:null, yearTo:null, dedupe:true,
+    freeText:"", fwTargets:{name:true, text:true, race:false}, fwMode:"OR",
+    cost:{from:null,to:null}, power:{from:null,to:null},
+    civ:{ include:new Set(), exclude:new Set(), colorCountMode:"any" },
+    facets:{}
+  };
+  let display = { sortKey:"release", sortDir:"asc", tileSize:150 };
   let visibleCount = PAGE_SIZE;
+  let currentFilteredCards = [];
+
+  // ---------- persistence ----------
+  function savePrefs(){
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify({ sortKey:display.sortKey, sortDir:display.sortDir, tileSize:display.tileSize }));
+    }catch(e){}
+  }
+  function loadPrefs(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(!raw) return;
+      const p = JSON.parse(raw);
+      if(p.sortKey) display.sortKey = p.sortKey;
+      if(p.sortDir) display.sortDir = p.sortDir;
+      if(p.tileSize) display.tileSize = p.tileSize;
+    }catch(e){}
+  }
 
   // ---------- utils ----------
-  function normalizeText(s){
-    return (s||"").replace(/[・･]/g, "").toLowerCase();
-  }
+  function toHiragana(s){ return s.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0x60)); }
+  function normalizeText(s){ return toHiragana((s||"").replace(/[・･]/g, "")).toLowerCase(); }
   function parseCode(code){
     const m = /^([A-Za-z]+)-?(\d+)([A-Za-z]*)$/.exec(code || "");
     if(!m) return {prefix:code||"", num:0, suffix:""};
@@ -328,9 +374,11 @@
     return Array.from(new Set(arr.filter(v=>v!==null && v!==undefined && v!=="")))
       .sort((a,b)=> String(a).localeCompare(String(b),'ja'));
   }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
   // ---------- boot ----------
   async function boot(){
+    loadPrefs();
     try{
       const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
       const resp = await fetch(DB_PATH);
@@ -339,9 +387,12 @@
       const db = new SQL.Database(new Uint8Array(buf));
 
       loadCards(db);
+      buildSeriesOrder(db);
       buildFacetDefs();
       buildFacetPanelDOM();
+      buildCivRow();
       attachGlobalListeners();
+      applySavedDisplayToControls();
       applyFiltersAndRender();
 
       document.getElementById("loadingMsg").hidden = true;
@@ -379,8 +430,11 @@
       o.races = racesByCard[o.card_id] || [];
       o.abilities = abilitiesByCard[o.card_id] || [];
       o.illustrators = illustByCard[o.card_id] || [];
+      o.card_type_norm = normalizeCardType(o.card_type);
       o._nameNorm = normalizeText(o.card_name);
       o._abilityNorm = normalizeText(o.ability_text);
+      o._raceNorm = normalizeText(o.races.join(" "));
+      PRODUCT_CHRONO[o.product_code] = o.release_year;
       return o;
     });
   }
@@ -399,37 +453,61 @@
     return map;
   }
 
+  function buildSeriesOrder(db){
+    const res = db.exec(`
+      SELECT series, MIN(release_year) y FROM products
+      WHERE series IS NOT NULL AND series != '' GROUP BY series ORDER BY y ASC
+    `)[0];
+    SERIES_ORDER = res ? res.values.map(r=>r[0]) : [];
+  }
+
   // ---------- facet definitions ----------
   function buildFacetDefs(){
     FACET_DEFS = [
-      { key:"civilization", label:"文明", getValues:c=>c.civilizations, order:CIV_ORDER },
-      { key:"cardType", label:"カードの種類", getValues:c=>c.card_type?[c.card_type]:[] },
-      { key:"rarity", label:"レアリティ", getValues:c=>c.rarity?[c.rarity]:[] },
-      { key:"race", label:"種族", getValues:c=>c.races, searchable:true },
-      { key:"ability", label:"特殊能力", getValues:c=>c.abilities, searchable:true },
-      { key:"series", label:"シリーズ", getValues:c=>c.series?[c.series]:[] },
-      { key:"product", label:"商品名（弾）", getValues:c=>c.product_code?[c.product_code+"｜"+(c.product_name||"")]:[], searchable:true },
-      { key:"illustrator", label:"イラストレーター", getValues:c=>c.illustrators, searchable:true },
+      { key:"cardType", label:"カードの種類", getValues:c=>c.card_type_norm?[c.card_type_norm]:[], sortMode:"count" },
+      { key:"rarity", label:"レアリティ", getValues:c=>c.rarity?[c.rarity]:[], sortMode:"custom", customOrder:RARITY_ORDER },
+      { key:"race", label:"種族", getValues:c=>c.races, sortMode:"alpha", searchable:true },
+      { key:"ability", label:"特殊能力", getValues:c=>c.abilities, sortMode:"count", searchable:true },
+      { key:"series", label:"シリーズ", getValues:c=>c.series?[c.series]:[], sortMode:"custom", customOrder:SERIES_ORDER, hideModeToggle:true },
+      { key:"product", label:"商品名（弾）", getValues:c=>c.product_code?[c.product_code]:[],
+        labelFor:v=>{ const c=ALL_CARDS.find(x=>x.product_code===v); return v + (c&&c.product_name ? "｜"+c.product_name : ""); },
+        sortMode:"alpha", searchable:true, chronoToggle:true },
+      { key:"illustrator", label:"イラストレーター", getValues:c=>c.illustrators, sortMode:"alpha", searchable:true },
     ];
     FACET_DEFS.forEach(def=>{
-      filters.facets[def.key] = { selected:new Set(), mode:"OR", search:"" };
+      filters.facets[def.key] = { selected:new Set(), mode:"OR", search:"", useChrono:false };
     });
   }
 
   function facetOptionCounts(def){
     const counts = {};
-    ALL_CARDS.forEach(c=>{
-      def.getValues(c).forEach(v=>{
-        counts[v] = (counts[v]||0)+1;
-      });
-    });
+    ALL_CARDS.forEach(c=>{ def.getValues(c).forEach(v=>{ counts[v]=(counts[v]||0)+1; }); });
     let keys = Object.keys(counts);
-    if(def.order){
-      keys = def.order.filter(k=>counts[k]).concat(keys.filter(k=>!def.order.includes(k)));
+    const state = filters.facets[def.key];
+
+    if(def.key==="product" && state.useChrono){
+      keys.sort((a,b)=> (PRODUCT_CHRONO[a]||9999)-(PRODUCT_CHRONO[b]||9999) || compareCode(a,b));
+    } else if(def.sortMode==="count"){
+      keys.sort((a,b)=> counts[b]-counts[a]);
+    } else if(def.sortMode==="custom" && def.customOrder){
+      const order = def.customOrder;
+      keys.sort((a,b)=>{
+        const ia=order.indexOf(a), ib=order.indexOf(b);
+        if(ia===-1 && ib===-1) return String(a).localeCompare(String(b),'ja');
+        if(ia===-1) return 1;
+        if(ib===-1) return -1;
+        return ia-ib;
+      });
     } else {
       keys = uniqSorted(keys);
     }
     return keys.map(k=>({value:k, count:counts[k]}));
+  }
+
+  // ---------- DOM: civilization ----------
+  function buildCivRow(){
+    const row = document.getElementById("civRow");
+    row.innerHTML = CIV_ORDER.map(c=>`<div class="civ-chip" data-civ="${c}" data-state="neutral" style="--chip-color:${CIV_COLOR[c]}">${c}</div>`).join("");
   }
 
   // ---------- DOM: facet panel ----------
@@ -437,46 +515,39 @@
     const container = document.getElementById("facetContainer");
     container.innerHTML = "";
     FACET_DEFS.forEach(def=>{
-      const opts = facetOptionCounts(def);
       const wrap = document.createElement("div");
       wrap.className = "facet";
       wrap.innerHTML = `
-        <div class="facet-head" data-target="body_${def.key}">
-          <h3>${def.label}</h3>
-          <span class="count-badge" id="badge_${def.key}"></span>
-          <span class="caret">▸</span>
-        </div>
+        <div class="facet-head" data-target="body_${def.key}"><h3>${def.label}</h3><span class="caret">▸</span></div>
         <div class="facet-body" id="body_${def.key}">
-          ${def.searchable ? `<input type="text" class="facet-search" data-key="${def.key}" placeholder="${def.label}を検索...">` : ""}
-          <div class="facet-mode" data-key="${def.key}">
-            <button data-mode="OR" class="active">いずれか(OR)</button>
-            <button data-mode="AND">すべて(AND)</button>
-          </div>
+          ${def.searchable ? `<div class="input-wrap facet-search"><input type="text" data-key="${def.key}" placeholder="${def.label}を検索..."><button class="clear-x" data-facet-clear="${def.key}">×</button></div>` : ""}
+          ${def.chronoToggle ? `<div class="mode-row"><span class="mode-label">並び順</span><div class="toggle-switch" data-chrono="${def.key}"><span class="on" data-val="false">通常</span><span data-val="true">発売順</span></div></div>` : ""}
+          ${def.hideModeToggle ? "" : `<div class="mode-row"><span class="mode-label">複数選択時</span><div class="toggle-switch" data-mode="${def.key}"><span class="on" data-val="OR">いずれか</span><span data-val="AND">すべて</span></div></div>`}
+          <div class="select-all-row"><button data-selall="${def.key}">すべて選択</button><button data-deselall="${def.key}">すべて解除</button></div>
           <div class="facet-options" id="options_${def.key}"></div>
         </div>
       `;
       container.appendChild(wrap);
-      renderFacetOptions(def, opts);
+      renderFacetOptions(def);
     });
   }
 
-  function renderFacetOptions(def, opts){
+  function renderFacetOptions(def){
     const box = document.getElementById("options_"+def.key);
+    const opts = facetOptionCounts(def);
     const q = normalizeText(filters.facets[def.key].search);
-    const filtered = q ? opts.filter(o=> normalizeText(o.value).includes(q)) : opts;
+    const filtered = q ? opts.filter(o=> normalizeText(def.labelFor?def.labelFor(o.value):o.value).includes(q)) : opts;
     box.innerHTML = filtered.map(o=>{
       const id = "opt_"+def.key+"_"+btoa(unescape(encodeURIComponent(o.value))).replace(/[^a-zA-Z0-9]/g,"");
       const checked = filters.facets[def.key].selected.has(o.value) ? "checked" : "";
+      const label = def.labelFor ? def.labelFor(o.value) : o.value;
       return `<div class="facet-option">
-        <input type="checkbox" id="${id}" data-key="${def.key}" data-value="${escapeAttr(o.value)}" ${checked}>
-        <label for="${id}">${escapeHtml(o.value)}</label>
+        <input type="checkbox" id="${id}" data-key="${def.key}" data-value="${escapeHtml(o.value)}" ${checked}>
+        <label for="${id}">${escapeHtml(label)}</label>
         <span class="n">${o.count}</span>
       </div>`;
     }).join("");
   }
-
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-  function escapeAttr(s){ return escapeHtml(s); }
 
   // ---------- listeners ----------
   function attachGlobalListeners(){
@@ -486,16 +557,97 @@
 
     document.addEventListener("click", (e)=>{
       const head = e.target.closest(".facet-head");
-      if(head){
-        head.closest(".facet").classList.toggle("expanded");
+      if(head){ head.closest(".facet").classList.toggle("expanded"); return; }
+
+      const civChip = e.target.closest(".civ-chip");
+      if(civChip){
+        const civ = civChip.dataset.civ;
+        const cur = civChip.dataset.state;
+        const next = cur==="neutral" ? "include" : (cur==="include" ? "exclude" : "neutral");
+        civChip.dataset.state = next;
+        filters.civ.include.delete(civ); filters.civ.exclude.delete(civ);
+        if(next==="include") filters.civ.include.add(civ);
+        if(next==="exclude") filters.civ.exclude.add(civ);
+        applyFiltersAndRender();
         return;
       }
-      const modeBtn = e.target.closest(".facet-mode button");
-      if(modeBtn){
-        const key = modeBtn.parentElement.dataset.key;
-        filters.facets[key].mode = modeBtn.dataset.mode;
-        modeBtn.parentElement.querySelectorAll("button").forEach(b=>b.classList.toggle("active", b===modeBtn));
+      const ccBtn = e.target.closest("#colorCountRow button");
+      if(ccBtn){
+        filters.civ.colorCountMode = ccBtn.dataset.mode;
+        document.querySelectorAll("#colorCountRow button").forEach(b=>b.classList.toggle("active", b===ccBtn));
         applyFiltersAndRender();
+        return;
+      }
+
+      const modeSw = e.target.closest(".toggle-switch[data-mode]");
+      if(modeSw){
+        const key = modeSw.dataset.mode;
+        const cur = filters.facets[key].mode;
+        const next = cur==="OR" ? "AND" : "OR";
+        filters.facets[key].mode = next;
+        modeSw.querySelectorAll("span").forEach(s=>s.classList.toggle("on", s.dataset.val===next));
+        applyFiltersAndRender();
+        return;
+      }
+      const chronoSw = e.target.closest(".toggle-switch[data-chrono]");
+      if(chronoSw){
+        const key = chronoSw.dataset.chrono;
+        const cur = filters.facets[key].useChrono;
+        const next = !cur;
+        filters.facets[key].useChrono = next;
+        chronoSw.querySelectorAll("span").forEach(s=>s.classList.toggle("on", s.dataset.val===String(next)));
+        renderFacetOptions(FACET_DEFS.find(d=>d.key===key));
+        return;
+      }
+      const fwModeSw = e.target.closest("#fwModeToggle");
+      if(fwModeSw){
+        const next = filters.fwMode==="OR" ? "AND" : "OR";
+        filters.fwMode = next;
+        fwModeSw.querySelectorAll("span").forEach(s=>s.classList.toggle("on", s.dataset.val===next));
+        applyFiltersAndRender();
+        return;
+      }
+
+      const selAll = e.target.closest("[data-selall]");
+      if(selAll){
+        const def = FACET_DEFS.find(d=>d.key===selAll.dataset.selall);
+        facetOptionCounts(def).forEach(o=>filters.facets[def.key].selected.add(o.value));
+        renderFacetOptions(def); applyFiltersAndRender();
+        return;
+      }
+      const deselAll = e.target.closest("[data-deselall]");
+      if(deselAll){
+        filters.facets[deselAll.dataset.deselall].selected.clear();
+        renderFacetOptions(FACET_DEFS.find(d=>d.key===deselAll.dataset.deselall)); applyFiltersAndRender();
+        return;
+      }
+
+      const clearX = e.target.closest(".clear-x");
+      if(clearX){
+        if(clearX.dataset.clear==="freeText"){ document.getElementById("freeText").value=""; filters.freeText=""; applyFiltersAndRender(); }
+        if(clearX.dataset.facetClear){
+          const key = clearX.dataset.facetClear;
+          filters.facets[key].search = "";
+          const input = document.querySelector(`.facet-search input[data-key="${key}"]`);
+          if(input) input.value="";
+          renderFacetOptions(FACET_DEFS.find(d=>d.key===key));
+        }
+        return;
+      }
+      const rangeReset = e.target.closest(".range-reset");
+      if(rangeReset){
+        const which = rangeReset.dataset.reset;
+        if(which==="year"){ filters.yearFrom=null; filters.yearTo=null; document.getElementById("yearFrom").value=""; document.getElementById("yearTo").value=""; }
+        if(which==="cost"){ filters.cost={from:null,to:null}; document.getElementById("costFrom").value=""; document.getElementById("costTo").value=""; }
+        if(which==="power"){ filters.power={from:null,to:null}; document.getElementById("powerFrom").value=""; document.getElementById("powerTo").value=""; }
+        applyFiltersAndRender();
+        return;
+      }
+      const sortDirBtn = e.target.closest("#sortDirBtn");
+      if(sortDirBtn){
+        display.sortDir = display.sortDir==="asc" ? "desc" : "asc";
+        sortDirBtn.textContent = display.sortDir==="asc" ? "▲昇順" : "▼降順";
+        savePrefs(); applyFiltersAndRender();
         return;
       }
     });
@@ -508,14 +660,18 @@
         applyFiltersAndRender();
       }
       if(e.target.id==="dedupeToggle"){ filters.dedupe = e.target.checked; applyFiltersAndRender(); }
+      if(e.target.id==="fwTargetName"){ filters.fwTargets.name = e.target.checked; applyFiltersAndRender(); }
+      if(e.target.id==="fwTargetText"){ filters.fwTargets.text = e.target.checked; applyFiltersAndRender(); }
+      if(e.target.id==="fwTargetRace"){ filters.fwTargets.race = e.target.checked; applyFiltersAndRender(); }
+      if(e.target.id==="sortKey"){ display.sortKey = e.target.value; savePrefs(); applyFiltersAndRender(); }
+      if(e.target.id==="sizeSlider"){ display.tileSize = parseInt(e.target.value,10); document.documentElement.style.setProperty("--tile-min", display.tileSize+"px"); savePrefs(); }
     });
 
     document.addEventListener("input", (e)=>{
-      if(e.target.matches(".facet-search")){
+      if(e.target.matches(".facet-search input[type=text]")){
         const key = e.target.dataset.key;
         filters.facets[key].search = e.target.value;
-        const def = FACET_DEFS.find(d=>d.key===key);
-        renderFacetOptions(def, facetOptionCounts(def));
+        renderFacetOptions(FACET_DEFS.find(d=>d.key===key));
       }
       if(e.target.id==="freeText"){ filters.freeText = e.target.value; applyFiltersAndRender(); }
       if(e.target.id==="yearFrom"){ filters.yearFrom = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
@@ -524,45 +680,97 @@
       if(e.target.id==="costTo"){ filters.cost.to = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
       if(e.target.id==="powerFrom"){ filters.power.from = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
       if(e.target.id==="powerTo"){ filters.power.to = e.target.value?parseInt(e.target.value,10):null; applyFiltersAndRender(); }
+      if(e.target.id==="sizeSlider"){ display.tileSize = parseInt(e.target.value,10); document.documentElement.style.setProperty("--tile-min", display.tileSize+"px"); }
     });
 
     document.getElementById("resetBtn").addEventListener("click", ()=>{
       filters.yearFrom=null; filters.yearTo=null; filters.dedupe=true; filters.freeText="";
+      filters.fwTargets={name:true,text:true,race:false}; filters.fwMode="OR";
       filters.cost={from:null,to:null}; filters.power={from:null,to:null};
-      Object.values(filters.facets).forEach(f=>{ f.selected=new Set(); f.mode="OR"; f.search=""; });
+      filters.civ={include:new Set(), exclude:new Set(), colorCountMode:"any"};
+      Object.values(filters.facets).forEach(f=>{ f.selected=new Set(); f.mode="OR"; f.search=""; f.useChrono=false; });
       document.querySelectorAll("#filterPanel input[type=text], #filterPanel input[type=number]").forEach(i=>i.value="");
       document.getElementById("dedupeToggle").checked = true;
+      document.getElementById("fwTargetName").checked = true;
+      document.getElementById("fwTargetText").checked = true;
+      document.getElementById("fwTargetRace").checked = false;
+      buildCivRow();
+      document.querySelectorAll("#colorCountRow button").forEach(b=>b.classList.toggle("active", b.dataset.mode==="any"));
+      document.querySelectorAll(".toggle-switch").forEach(sw=>{
+        sw.querySelectorAll("span").forEach((s,i)=>s.classList.toggle("on", i===0));
+      });
       buildFacetPanelDOM();
       applyFiltersAndRender();
     });
 
-    document.getElementById("loadMoreBtn").addEventListener("click", ()=>{
-      visibleCount += PAGE_SIZE;
-      renderGrid(currentFilteredCards);
-    });
+    document.getElementById("loadMoreBtn").addEventListener("click", ()=>{ visibleCount += PAGE_SIZE; renderGrid(currentFilteredCards); });
 
     document.getElementById("grid").addEventListener("click", (e)=>{
       const tile = e.target.closest(".card-tile");
       if(tile) openModal(tile.dataset.cardId);
     });
     document.getElementById("modalClose").addEventListener("click", closeModal);
-    document.getElementById("modalOverlay").addEventListener("click", (e)=>{
-      if(e.target.id==="modalOverlay") closeModal();
-    });
+    document.getElementById("modalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="modalOverlay") closeModal(); });
+  }
+
+  function applySavedDisplayToControls(){
+    document.getElementById("sortKey").value = display.sortKey;
+    document.getElementById("sortDirBtn").textContent = display.sortDir==="asc" ? "▲昇順" : "▼降順";
+    document.getElementById("sizeSlider").value = display.tileSize;
+    document.documentElement.style.setProperty("--tile-min", display.tileSize+"px");
   }
 
   // ---------- filtering ----------
-  let currentFilteredCards = [];
-
   function matchesFacet(card, def, state){
     if(state.selected.size===0) return true;
     const values = def.getValues(card);
-    if(state.mode==="AND"){
-      for(const v of state.selected) if(!values.includes(v)) return false;
-      return true;
-    }
+    if(state.mode==="AND"){ for(const v of state.selected) if(!values.includes(v)) return false; return true; }
     for(const v of state.selected) if(values.includes(v)) return true;
     return false;
+  }
+  function matchesCiv(card){
+    const civs = card.civilizations;
+    if(filters.civ.colorCountMode==="mono" && civs.length!==1) return false;
+    if(filters.civ.colorCountMode==="multi" && civs.length<2) return false;
+    for(const ex of filters.civ.exclude) if(civs.includes(ex)) return false;
+    if(filters.civ.include.size>0){
+      let ok=true;
+      for(const inc of filters.civ.include) if(!civs.includes(inc)){ ok=false; break; }
+      if(!ok) return false;
+    }
+    return true;
+  }
+  function matchesFreeText(card){
+    if(!filters.freeText.trim()) return true;
+    const terms = filters.freeText.trim().split(/[\s\u3000]+/).filter(Boolean).map(normalizeText);
+    if(terms.length===0) return true;
+    const targets = [];
+    if(filters.fwTargets.name) targets.push(card._nameNorm);
+    if(filters.fwTargets.text) targets.push(card._abilityNorm);
+    if(filters.fwTargets.race) targets.push(card._raceNorm);
+    if(targets.length===0) return true;
+    const termMatches = t => targets.some(tx => tx.includes(t));
+    return filters.fwMode==="AND" ? terms.every(termMatches) : terms.some(termMatches);
+  }
+
+  function sortCards(list){
+    const dir = display.sortDir==="asc" ? 1 : -1;
+    const arr = list.slice();
+    arr.sort((a,b)=>{
+      let r=0;
+      if(display.sortKey==="release"){
+        r = (a.release_year||0)-(b.release_year||0);
+        if(r===0) r = compareCode(a.product_code,b.product_code);
+      } else if(display.sortKey==="name"){
+        r = String(a.card_name||"").localeCompare(String(b.card_name||""),'ja');
+      } else if(display.sortKey==="cost"){
+        r = (a.cost==null?-1:a.cost)-(b.cost==null?-1:b.cost);
+      } else if(display.sortKey==="power"){
+        r = (a.power==null?-1:a.power)-(b.power==null?-1:b.power);
+      }
+      return r*dir;
+    });
+    return arr;
   }
 
   function applyFiltersAndRender(){
@@ -573,13 +781,9 @@
       if(filters.cost.to!=null && (c.cost==null || c.cost>filters.cost.to)) return false;
       if(filters.power.from!=null && (c.power==null || c.power<filters.power.from)) return false;
       if(filters.power.to!=null && (c.power==null || c.power>filters.power.to)) return false;
-      if(filters.freeText){
-        const q = normalizeText(filters.freeText);
-        if(!c._nameNorm.includes(q) && !c._abilityNorm.includes(q)) return false;
-      }
-      for(const def of FACET_DEFS){
-        if(!matchesFacet(c, def, filters.facets[def.key])) return false;
-      }
+      if(!matchesFreeText(c)) return false;
+      if(!matchesCiv(c)) return false;
+      for(const def of FACET_DEFS){ if(!matchesFacet(c, def, filters.facets[def.key])) return false; }
       return true;
     });
 
@@ -596,30 +800,26 @@
       list = Array.from(byName.values());
     }
 
+    list = sortCards(list);
     currentFilteredCards = list;
     visibleCount = PAGE_SIZE;
     document.getElementById("resultCount").innerHTML = `<b>${list.length.toLocaleString()}</b> 枚が該当`;
     renderGrid(list);
   }
 
-  // ---------- render grid ----------
   function renderGrid(list){
     const grid = document.getElementById("grid");
     const slice = list.slice(0, visibleCount);
     grid.innerHTML = slice.map(c=>`
       <div class="card-tile" data-card-id="${c.card_id}">
         <img src="${c.thumb_url}" alt="${escapeHtml(c.card_name)}" loading="lazy">
-        <div class="meta">
-          <div class="cname">${escapeHtml(c.card_name)}</div>
-          <div class="csub">${escapeHtml(c.product_code||"")} / ${c.release_year||"?"}</div>
-        </div>
+        <div class="meta"><span>${c.release_year||"?"}</span><span>${escapeHtml((c.product_code||"")+" "+(c.card_number||""))}</span></div>
       </div>
     `).join("");
     document.getElementById("emptyMsg").hidden = list.length>0;
     document.getElementById("loadMoreBtn").hidden = visibleCount>=list.length;
   }
 
-  // ---------- modal ----------
   function openModal(cardId){
     const c = ALL_CARDS.find(x=>String(x.card_id)===String(cardId));
     if(!c) return;
@@ -632,6 +832,7 @@
       <img src="${c.image_url}" alt="${escapeHtml(c.card_name)}">
       <div id="modalInfo">
         <h2>${escapeHtml(c.card_name)}</h2>
+        <div class="ability-text">${escapeHtml(c.ability_text || "（能力テキストなし）")}</div>
         <div class="row"><b>商品</b><span>${escapeHtml(c.product_code||"")} ${escapeHtml(c.product_name||"")}</span></div>
         <div class="row"><b>カード番号</b><span>${escapeHtml(c.card_number||"-")}</span></div>
         <div class="row"><b>発売年</b><span>${c.release_year||"-"}</span></div>
@@ -641,7 +842,6 @@
         <div class="row"><b>レアリティ</b><span>${escapeHtml(c.rarity||"-")}</span></div>
         <div class="row"><b>イラスト</b><span>${escapeHtml(c.illustrators.join("、")||"-")}</span></div>
         <div>${tags}</div>
-        <div class="ability-text">${escapeHtml(c.ability_text||"")}</div>
       </div>
     `;
     document.getElementById("modalOverlay").classList.add("open");
