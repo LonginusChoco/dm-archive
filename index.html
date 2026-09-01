@@ -50,8 +50,6 @@
   .layout{max-width:1400px; margin:0 auto; padding:18px 20px 80px; display:grid; grid-template-columns:300px 1fr; gap:22px;}
   @media (max-width: 880px){
     .layout{grid-template-columns:1fr; padding:14px 12px 40px;}
-    /* スマホでは絞り込みボタン(sticky)の下に来るよう、少し下にずらす */
-    .result-head{top:52px;}
   }
 
   #filterToggleBtn{display:none;}
@@ -155,6 +153,13 @@
     margin-bottom:14px; color:var(--text-dim); font-size:13px;
     position:sticky; top:0; z-index:20; background:var(--bg);
     padding:10px 0; border-bottom:1px solid var(--line);
+  }
+  /* スマホでは絞り込みボタン(sticky)の下に来るよう、少し下にずらす。
+     この指定は.result-headの基本定義より後ろに書く必要がある
+     （CSSは同じ詳細度なら後に書かれた方が優先されるため、
+     前に書いてしまうと基本定義のtop:0に上書きされて無効になる）。 */
+  @media (max-width: 880px){
+    .result-head{top:58px;}
   }
   #resultCount b{color:var(--text); font-family:"JetBrains Mono", monospace;}
   .display-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
@@ -317,7 +322,7 @@
         <button id="sortDirBtn" class="dir-btn">▲昇順</button>
         <div class="size-row">
           <label for="sizeSlider">表示サイズ</label>
-          <input type="range" id="sizeSlider" min="100" max="240" step="10">
+          <input type="range" id="sizeSlider" min="100" max="420" step="10">
         </div>
       </div>
     </div>
