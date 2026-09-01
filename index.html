@@ -677,6 +677,10 @@
 
     if(def.key==="product" && state.useChrono){
       keys.sort((a,b)=> (PRODUCT_CHRONO[a]||9999)-(PRODUCT_CHRONO[b]||9999) || compareCode(a,b));
+    } else if(def.key==="product"){
+      // 「通常」表示でも、'PROMOY10'が'PROMOY1'の直後(文字列比較の弊害)に
+      // 来てしまわないよう、商品コードを数値として解釈するcompareCodeを使う
+      keys.sort((a,b)=> compareCode(a,b));
     } else if(def.sortMode==="count"){
       keys.sort((a,b)=> counts[b]-counts[a]);
     } else if(def.sortMode==="custom" && def.customOrder){
