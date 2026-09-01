@@ -42,12 +42,12 @@
       linear-gradient(90deg, var(--civ-hikari) 0 16.6%, var(--civ-mizu) 16.6% 33.2%, var(--civ-yami) 33.2% 49.8%, var(--civ-hi) 49.8% 66.4%, var(--civ-shizen) 66.4% 83%, var(--civ-zero) 83% 100%) top/100% 3px no-repeat,
       var(--bg);
   }
-  header.site .title-row{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; max-width:1400px; margin:0 auto;}
+  header.site .title-row{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; max-width:2400px; margin:0 auto;}
   header.site h1{font-size:22px; font-weight:900; letter-spacing:.02em; margin:0;}
   header.site .subtitle{color:var(--text-dim); font-size:13px;}
-  header.site .stat-line{max-width:1400px; margin:10px auto 0; color:var(--text-faint); font-size:12.5px; font-family:"JetBrains Mono", monospace;}
+  header.site .stat-line{max-width:2400px; margin:10px auto 0; color:var(--text-faint); font-size:12.5px; font-family:"JetBrains Mono", monospace;}
 
-  .layout{max-width:1400px; margin:0 auto; padding:18px 20px 80px; display:grid; grid-template-columns:300px 1fr; gap:22px;}
+  .layout{max-width:2400px; margin:0 auto; padding:18px 20px 80px; display:grid; grid-template-columns:300px 1fr; gap:22px;}
   @media (max-width: 880px){
     .layout{grid-template-columns:1fr; padding:14px 12px 40px;}
   }
@@ -320,6 +320,13 @@
           <option value="power">パワー順</option>
         </select>
         <button id="sortDirBtn" class="dir-btn">▲昇順</button>
+        <select id="pageSizeSelect" title="1度に読み込む枚数">
+          <option value="30">30枚ずつ</option>
+          <option value="60" selected>60枚ずつ</option>
+          <option value="120">120枚ずつ</option>
+          <option value="240">240枚ずつ</option>
+          <option value="99999">まとめて全部</option>
+        </select>
         <div class="size-row">
           <label for="sizeSlider">表示サイズ</label>
           <input type="range" id="sizeSlider" min="100" max="420" step="10">
@@ -346,7 +353,7 @@
   "use strict";
 
   const DB_PATH = "./duelmasters.db";
-  const PAGE_SIZE = 60;
+  const DEFAULT_PAGE_SIZE = 60;
   const LS_KEY = "dmArchivePrefs";
 
   const CIV_COLOR = { "光":"var(--civ-hikari)", "水":"var(--civ-mizu)", "闇":"var(--civ-yami)", "火":"var(--civ-hi)", "自然":"var(--civ-shizen)", "ゼロ":"var(--civ-zero)" };
@@ -382,8 +389,8 @@
     civ:{ include:new Set(), exclude:new Set(), colorCountMode:"any" },
     facets:{}
   };
-  let display = { sortKey:"release", sortDir:"asc", tileSize:150 };
-  let visibleCount = PAGE_SIZE;
+  let display = { sortKey:"release", sortDir:"asc", tileSize:150, pageSize:DEFAULT_PAGE_SIZE };
+  let visibleCount = display.pageSize;
   let currentFilteredCards = [];
 
   // ---------- persistence ----------
@@ -395,7 +402,7 @@
         facetsOut[k] = { selected:Array.from(f.selected), mode:f.mode, useChrono:!!f.useChrono };
       });
       const data = {
-        sortKey:display.sortKey, sortDir:display.sortDir, tileSize:display.tileSize,
+        sortKey:display.sortKey, sortDir:display.sortDir, tileSize:display.tileSize, pageSize:display.pageSize,
         filters: {
           yearFrom:filters.yearFrom, yearTo:filters.yearTo, dedupe:filters.dedupe,
           freeText:filters.freeText, fwTargets:filters.fwTargets, fwMode:filters.fwMode,
@@ -415,6 +422,7 @@
       if(p.sortKey) display.sortKey = p.sortKey;
       if(p.sortDir) display.sortDir = p.sortDir;
       if(p.tileSize) display.tileSize = p.tileSize;
+      if(p.pageSize) display.pageSize = p.pageSize;
     }catch(e){}
   }
   // buildFacetDefs()でfilters.facetsの雛形ができた後に呼び出し、保存されていた
@@ -889,6 +897,12 @@
       if(e.target.id==="fwTargetText"){ filters.fwTargets.text = e.target.checked; applyFiltersAndRender(); }
       if(e.target.id==="fwTargetRace"){ filters.fwTargets.race = e.target.checked; applyFiltersAndRender(); }
       if(e.target.id==="sortKey"){ display.sortKey = e.target.value; savePrefs(); applyFiltersAndRender(); }
+      if(e.target.id==="pageSizeSelect"){
+        display.pageSize = parseInt(e.target.value,10);
+        visibleCount = display.pageSize;
+        savePrefs();
+        renderGrid(currentFilteredCards);
+      }
       if(e.target.id==="sizeSlider"){ display.tileSize = parseInt(e.target.value,10); document.documentElement.style.setProperty("--tile-min", display.tileSize+"px"); savePrefs(); }
     });
 
@@ -936,7 +950,7 @@
       });
     });
 
-    document.getElementById("loadMoreBtn").addEventListener("click", ()=>{ visibleCount += PAGE_SIZE; renderGrid(currentFilteredCards); });
+    document.getElementById("loadMoreBtn").addEventListener("click", ()=>{ visibleCount += display.pageSize; renderGrid(currentFilteredCards); });
 
     document.getElementById("grid").addEventListener("click", (e)=>{
       const tile = e.target.closest(".card-tile");
@@ -951,6 +965,11 @@
     document.getElementById("sortDirBtn").textContent = display.sortDir==="asc" ? "▲昇順" : "▼降順";
     document.getElementById("sizeSlider").value = display.tileSize;
     document.documentElement.style.setProperty("--tile-min", display.tileSize+"px");
+    const pageSizeEl = document.getElementById("pageSizeSelect");
+    if([...pageSizeEl.options].some(o=>o.value===String(display.pageSize))){
+      pageSizeEl.value = display.pageSize;
+    }
+    visibleCount = display.pageSize;
   }
 
   // ---------- filtering ----------
@@ -1037,7 +1056,7 @@
 
     list = sortCards(list);
     currentFilteredCards = list;
-    visibleCount = PAGE_SIZE;
+    visibleCount = display.pageSize;
     document.getElementById("resultCount").innerHTML = `<b>${list.length.toLocaleString()}</b> 枚が該当`;
     renderGrid(list);
     savePrefs();
