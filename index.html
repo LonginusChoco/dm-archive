@@ -154,13 +154,6 @@
     position:sticky; top:0; z-index:20; background:var(--bg);
     padding:10px 0; border-bottom:1px solid var(--line);
   }
-  /* スマホでは絞り込みボタン(sticky)の下に来るよう、少し下にずらす。
-     この指定は.result-headの基本定義より後ろに書く必要がある
-     （CSSは同じ詳細度なら後に書かれた方が優先されるため、
-     前に書いてしまうと基本定義のtop:0に上書きされて無効になる）。 */
-  @media (max-width: 880px){
-    .result-head{top:58px;}
-  }
   #resultCount b{color:var(--text); font-family:"JetBrains Mono", monospace;}
   .display-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
   .display-controls select{background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:5px 8px; border-radius:var(--radius); font-size:12px;}
@@ -172,6 +165,19 @@
     .size-row{font-size:13px; gap:10px;}
     .size-row input[type=range]{width:180px; height:20px;}
   }
+  /* スマホでは、ツールバー全体をスティッキーにすると場所を取りすぎるため、
+     ツールバー自体は通常の位置に戻し、表示サイズのスライダーだけを
+     画面右上に小さく常時表示する。 */
+  @media (max-width: 880px){
+    .result-head{position:static; top:auto; background:transparent; border-bottom:none; padding:0 0 10px;}
+    .size-row{
+      position:fixed; top:8px; right:10px; z-index:45;
+      background:rgba(27,30,38,.92); padding:5px 8px; border-radius:6px;
+      border:1px solid var(--line); font-size:10px; backdrop-filter:blur(4px);
+    }
+    .size-row input[type=range]{width:62px; height:10px;}
+  }
+  .pagesize-inline{margin-left:10px; vertical-align:middle;}
 
   .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--tile-min), 1fr)); gap:12px;}
   .card-tile{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; cursor:pointer; transition:border-color .12s, transform .12s;}
@@ -179,7 +185,7 @@
   .card-tile img{width:100%; aspect-ratio:5/7; object-fit:contain; background:#0c0d11; display:block;}
   .card-tile .meta{padding:5px 7px 7px; font-size:10.5px; color:var(--text-faint); font-family:"JetBrains Mono", monospace; display:flex; justify-content:space-between;}
 
-  #loadMoreBtn{display:block; margin:26px auto 0; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:10px 26px; border-radius:var(--radius); font-size:13px; cursor:pointer;}
+  #loadMoreBtn{display:inline-block; background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:10px 26px; border-radius:var(--radius); font-size:13px; cursor:pointer; vertical-align:middle;}
   #loadMoreBtn:hover{border-color:var(--accent);}
   #loadMoreBtn[hidden]{display:none;}
   #loadingMsg, #emptyMsg{text-align:center; color:var(--text-faint); padding:60px 0; font-size:13px;}
@@ -320,7 +326,7 @@
           <option value="power">パワー順</option>
         </select>
         <button id="sortDirBtn" class="dir-btn">▲昇順</button>
-        <select id="pageSizeSelect" title="1度に読み込む枚数">
+        <select id="pageSizeSelect" class="page-size-select" title="1度に読み込む枚数">
           <option value="30">30枚ずつ</option>
           <option value="60" selected>60枚ずつ</option>
           <option value="120">120枚ずつ</option>
@@ -336,7 +342,16 @@
     <div id="loadingMsg">データベースを読み込んでいます...</div>
     <div id="emptyMsg" hidden>条件に一致するカードが見つかりませんでした。</div>
     <div class="grid" id="grid"></div>
-    <button id="loadMoreBtn" hidden>さらに表示する</button>
+    <div style="text-align:center; margin-top:26px;">
+      <button id="loadMoreBtn" hidden>さらに表示する</button>
+      <select id="pageSizeSelectBottom" class="page-size-select pagesize-inline" title="1度に読み込む枚数">
+        <option value="30">30枚ずつ</option>
+        <option value="60" selected>60枚ずつ</option>
+        <option value="120">120枚ずつ</option>
+        <option value="240">240枚ずつ</option>
+        <option value="99999">まとめて全部</option>
+      </select>
+    </div>
   </main>
 </div>
 
@@ -897,9 +912,10 @@
       if(e.target.id==="fwTargetText"){ filters.fwTargets.text = e.target.checked; applyFiltersAndRender(); }
       if(e.target.id==="fwTargetRace"){ filters.fwTargets.race = e.target.checked; applyFiltersAndRender(); }
       if(e.target.id==="sortKey"){ display.sortKey = e.target.value; savePrefs(); applyFiltersAndRender(); }
-      if(e.target.id==="pageSizeSelect"){
+      if(e.target.classList.contains("page-size-select")){
         display.pageSize = parseInt(e.target.value,10);
         visibleCount = display.pageSize;
+        document.querySelectorAll(".page-size-select").forEach(el=>{ el.value = String(display.pageSize); });
         savePrefs();
         renderGrid(currentFilteredCards);
       }
@@ -965,10 +981,11 @@
     document.getElementById("sortDirBtn").textContent = display.sortDir==="asc" ? "▲昇順" : "▼降順";
     document.getElementById("sizeSlider").value = display.tileSize;
     document.documentElement.style.setProperty("--tile-min", display.tileSize+"px");
-    const pageSizeEl = document.getElementById("pageSizeSelect");
-    if([...pageSizeEl.options].some(o=>o.value===String(display.pageSize))){
-      pageSizeEl.value = display.pageSize;
-    }
+    document.querySelectorAll(".page-size-select").forEach(el=>{
+      if([...el.options].some(o=>o.value===String(display.pageSize))){
+        el.value = String(display.pageSize);
+      }
+    });
     visibleCount = display.pageSize;
   }
 
