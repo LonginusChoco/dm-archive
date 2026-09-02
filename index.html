@@ -63,12 +63,20 @@
     }
     /* メニューを開いている間は、背景ページのスクロール位置に連動するstickyをやめ、
        常にビューポート最上部に固定する(fixed)。背景側のスクロール自体も
-       body.no-scrollで止めるため、二重に安定させている。 */
+       body.no-scrollで止めるため、二重に安定させている。
+       また、閉じるボタン(左半分)とリセットボタン(右半分)を左右に分け、
+       誤って隣のボタンを押してしまわないよう並べて配置する。 */
     #filterToggleBtn.menu-open{
-      position:fixed; top:8px; left:12px; right:12px; margin-bottom:0;
+      position:fixed; top:8px; left:12px; right:auto; width:calc(50% - 16px); margin-bottom:0;
     }
     #filterPanel{display:none;}
     #filterPanel.open{display:block; position:fixed; inset:0; z-index:39; overflow-y:auto; padding:64px 14px 40px; background:var(--bg);}
+    /* 絞り込みボタン(オレンジ系)と誤って区別がつかないよう、
+       リセットボタンは色味の違う寒色系にし、メニューを開いている間は
+       画面右上に固定して、閉じるボタンの隣(右半分)に並べる。 */
+    .reset-btn.top{
+      position:fixed; top:8px; right:12px; z-index:46; width:calc(50% - 16px); margin-bottom:0;
+    }
   }
 
   #filterPanel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; align-self:start; position:sticky; top:14px; max-height:calc(100vh - 28px); overflow-y:auto;}
@@ -143,8 +151,8 @@
   .fw-target-row label{display:flex; align-items:center; gap:4px; font-size:11.5px; color:var(--text-dim);}
   .fw-target-row input{accent-color:var(--accent);}
 
-  .reset-btn{width:100%; background:rgba(224,85,63,.14); border:1px solid rgba(224,85,63,.45); color:var(--text); padding:9px; border-radius:var(--radius); font-size:12.5px; font-weight:600; cursor:pointer;}
-  .reset-btn:hover{background:rgba(224,85,63,.24); border-color:var(--accent);}
+  .reset-btn{width:100%; background:rgba(90,130,210,.16); border:1px solid rgba(90,130,210,.5); color:var(--text); padding:9px; border-radius:var(--radius); font-size:12.5px; font-weight:600; cursor:pointer;}
+  .reset-btn:hover{background:rgba(90,130,210,.28); border-color:rgba(90,130,210,.8);}
   .reset-btn.top{margin-bottom:14px;}
   .reset-btn.bottom{margin-top:12px;}
 
@@ -302,14 +310,9 @@
 
     <div id="facetContainer"><!-- cardType / race / rarity / ability / series / product / illustrator --></div>
 
-    <div class="facet">
-      <div class="facet-head" data-target="displayOptBody"><h3>表示オプション</h3><span class="caret">▸</span></div>
-      <div class="facet-body" id="displayOptBody">
-        <div class="toggle-row">
-          <input type="checkbox" id="dedupeToggle" checked>
-          <label for="dedupeToggle">同名カードは最古の1枚のみ表示</label>
-        </div>
-      </div>
+    <div class="toggle-row" style="margin:16px 2px;">
+      <input type="checkbox" id="dedupeToggle" checked>
+      <label for="dedupeToggle">同名カードは最古の1枚のみ表示</label>
     </div>
 
     <button class="reset-btn bottom" data-action="reset-filters">条件をすべてリセット</button>
@@ -623,6 +626,7 @@
              c.has_back_side, c.back_card_name, c.back_civilization, c.back_card_type,
              c.back_rarity, c.back_cost, c.back_power, c.back_race,
              c.back_ability_text, c.back_flavor_text, c.back_image_url,
+             c.release_year_override,
              p.product_name, p.release_year, p.series
       FROM cards c LEFT JOIN products p ON c.product_code = p.product_code
     `;
@@ -658,6 +662,9 @@
       const o = {};
       cols.forEach((c,i)=> o[c]=row[i]);
       if(!hasBackColumns) o.has_back_side = 0;
+      // カード単位の発売年上書き(release_year_override)があれば、
+      // 商品単位のrelease_yearより優先する
+      if(o.release_year_override != null) o.release_year = o.release_year_override;
       o.civilizations = (o.civilization||"").split("/").filter(Boolean);
       o.races = racesByCard[o.card_id] || [];
       o.abilities = abilitiesByCard[o.card_id] || [];
